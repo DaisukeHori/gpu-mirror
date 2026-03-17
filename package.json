@@ -1,0 +1,23 @@
+{
+  "name": "revol-mirror",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "lint": "turbo run lint",
+    "type-check": "turbo run type-check",
+    "clean": "turbo run clean"
+  },
+  "devDependencies": {
+    "turbo": "^2.4.0",
+    "prettier": "^3.5.0"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "packageManager": "npm@10.8.0"
+}

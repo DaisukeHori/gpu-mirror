@@ -1,0 +1,50 @@
+{
+  "expo": {
+    "name": "REVOL Mirror",
+    "slug": "revol-mirror",
+    "version": "1.0.0",
+    "orientation": "default",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "scheme": "revol-mirror",
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0F0E0C"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.revol.mirror",
+      "infoPlist": {
+        "NSCameraUsageDescription": "ヘアスタイルシミュレーションのためにカメラを使用します",
+        "NSPhotoLibraryUsageDescription": "参照画像を選択するためにフォトライブラリを使用します"
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#0F0E0C",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "package": "com.revol.mirror"
+    },
+    "web": {
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-image",
+      "expo-secure-store",
+      "expo-web-browser",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "ヘアスタイルシミュレーションのためにカメラを使用します"
+        }
+      ],
+      "expo-sharing"
+    ]
+  }
+}
