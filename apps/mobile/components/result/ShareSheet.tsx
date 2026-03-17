@@ -1,6 +1,6 @@
 import { View, Text, Pressable, Modal, Alert } from 'react-native';
 import * as Sharing from 'expo-sharing';
-import * as FileSystem from 'expo-file-system/legacy';
+import * as FileSystem from 'expo-file-system';
 import * as Haptics from 'expo-haptics';
 import { useState } from 'react';
 import type { Generation } from '../../lib/types';

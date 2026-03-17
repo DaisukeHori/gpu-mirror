@@ -18,16 +18,6 @@ export async function createThumbnail(buffer: Buffer): Promise<Buffer> {
     .toBuffer();
 }
 
-export async function getImageMetadata(buffer: Buffer) {
-  const metadata = await sharp(buffer).metadata();
-  return {
-    width: metadata.width ?? 0,
-    height: metadata.height ?? 0,
-    format: metadata.format ?? 'unknown',
-    size: buffer.length,
-  };
-}
-
 export function validateImageSize(sizeBytes: number): boolean {
   const maxSizeMb = parseInt(process.env.IMAGE_MAX_SIZE_MB ?? '10', 10);
   return sizeBytes <= maxSizeMb * 1024 * 1024;

@@ -1,5 +1,7 @@
+import { useEffect } from 'react';
 import { View, Text, Pressable } from 'react-native';
 import Animated, {
+  useSharedValue,
   useAnimatedStyle,
   withTiming,
   Easing,
@@ -14,11 +16,17 @@ interface ProgressBoardProps {
 }
 
 function AnimatedBar({ percent }: { percent: number }) {
-  const style = useAnimatedStyle(() => ({
-    width: withTiming(`${percent}%` as unknown as number, {
+  const widthPct = useSharedValue(0);
+
+  useEffect(() => {
+    widthPct.value = withTiming(percent, {
       duration: 400,
       easing: Easing.out(Easing.quad),
-    }),
+    });
+  }, [percent, widthPct]);
+
+  const style = useAnimatedStyle(() => ({
+    width: `${widthPct.value}%`,
   }));
 
   return (

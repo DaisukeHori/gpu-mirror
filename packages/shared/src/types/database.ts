@@ -110,15 +110,61 @@ export interface SessionGeneration {
   created_at: string;
 }
 
+type AutoFields = 'id' | 'created_at' | 'updated_at';
+
+type InsertRow<T, OptionalKeys extends keyof T = never> = Omit<T, AutoFields | OptionalKeys> & Partial<Pick<T, OptionalKeys | Extract<AutoFields, keyof T>>>;
+
 export interface Database {
   public: {
     Tables: {
-      staffs: { Row: Staff; Insert: Omit<Staff, 'id' | 'created_at' | 'updated_at'>; Update: Partial<Staff> };
-      catalog_categories: { Row: CatalogCategory; Insert: Omit<CatalogCategory, 'id' | 'created_at'>; Update: Partial<CatalogCategory> };
-      catalog_items: { Row: CatalogItem; Insert: Omit<CatalogItem, 'id' | 'created_at' | 'updated_at' | 'popularity'>; Update: Partial<CatalogItem> };
-      hair_colors: { Row: HairColor; Insert: Omit<HairColor, 'id' | 'created_at'>; Update: Partial<HairColor> };
-      sessions: { Row: Session; Insert: Omit<Session, 'id' | 'created_at' | 'updated_at'>; Update: Partial<Session> };
-      session_generations: { Row: SessionGeneration; Insert: Omit<SessionGeneration, 'id' | 'created_at'>; Update: Partial<SessionGeneration> };
+      staffs: {
+        Row: Staff;
+        Insert: InsertRow<Staff, 'auth_user_id' | 'entra_id_oid' | 'store_code' | 'hubspot_owner_id' | 'is_active'>;
+        Update: Partial<Staff>;
+        Relationships: [];
+      };
+      catalog_categories: {
+        Row: CatalogCategory;
+        Insert: InsertRow<CatalogCategory, 'icon_name' | 'is_active' | 'sort_order'>;
+        Update: Partial<CatalogCategory>;
+        Relationships: [];
+      };
+      catalog_items: {
+        Row: CatalogItem;
+        Insert: InsertRow<CatalogItem, 'category_id' | 'description' | 'thumbnail_path' | 'tags' | 'gender' | 'popularity' | 'is_active' | 'created_by' | 'category'>;
+        Update: Partial<CatalogItem>;
+        Relationships: [];
+      };
+      hair_colors: {
+        Row: HairColor;
+        Insert: InsertRow<HairColor, 'name_en' | 'level' | 'is_active' | 'sort_order'>;
+        Update: Partial<HairColor>;
+        Relationships: [];
+      };
+      sessions: {
+        Row: Session;
+        Insert: InsertRow<Session, 'store_code' | 'ai_model' | 'is_closed' | 'closed_at' | 'hubspot_contact_id' | 'hubspot_deal_id' | 'generations'>;
+        Update: Partial<Session>;
+        Relationships: [];
+      };
+      session_generations: {
+        Row: SessionGeneration;
+        Insert: InsertRow<SessionGeneration, 'reference_photo_path' | 'reference_source_url' | 'catalog_item_id' | 'hair_color_id' | 'hair_color_custom' | 'style_label' | 'generated_photo_path' | 'ai_prompt' | 'ai_latency_ms' | 'ai_cost_usd' | 'is_favorite' | 'is_selected'>;
+        Update: Partial<SessionGeneration>;
+        Relationships: [];
+      };
     };
+    Views: Record<string, never>;
+    Functions: Record<string, never>;
+    Enums: {
+      staff_role: StaffRole;
+      gender: Gender;
+      simulation_mode: SimulationMode;
+      reference_type: ReferenceType;
+      angle: Angle;
+      generation_status: GenerationStatus;
+      color_family: ColorFamily;
+    };
+    CompositeTypes: Record<string, never>;
   };
 }

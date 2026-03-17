@@ -3,25 +3,27 @@ import { supabaseAdmin } from '../../../lib/supabase-admin';
 import { authenticate } from '../../../lib/auth';
 import { resizeImage, validateImageSize } from '../../../lib/image-utils';
 import { randomUUID } from 'crypto';
+import { proxyImageSchema } from '@revol-mirror/shared';
 
 export async function POST(request: NextRequest) {
   const auth = await authenticate(request);
   if (auth instanceof NextResponse) return auth;
 
-  let body: Record<string, unknown>;
+  let body: unknown;
   try {
     body = await request.json();
   } catch {
     return NextResponse.json({ error: 'Bad Request', message: 'Invalid JSON' }, { status: 400 });
   }
-  const { url, session_id } = body as { url?: string; session_id?: string };
 
-  if (!url || !session_id) {
+  const parsed = proxyImageSchema.safeParse(body);
+  if (!parsed.success) {
     return NextResponse.json(
-      { error: 'Bad Request', message: 'url and session_id are required' },
+      { error: 'Bad Request', message: parsed.error.issues[0]?.message ?? 'Validation failed' },
       { status: 400 },
     );
   }
+  const { url, session_id } = parsed.data;
 
   try {
     const parsed = new URL(url);

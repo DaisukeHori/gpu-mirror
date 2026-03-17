@@ -9,9 +9,9 @@ import Animated, {
   Easing,
 } from 'react-native-reanimated';
 import { router, useLocalSearchParams } from 'expo-router';
-import { apiPatch } from '../../lib/api';
 import { useGenerate } from '../../hooks/useGenerate';
 import { ExitButton } from '../../components/common/ExitButton';
+import { useCloseSession } from '../../hooks/useCloseSession';
 import { ProgressBoard } from '../../components/generating/ProgressBoard';
 
 export default function GeneratingScreen() {
@@ -26,6 +26,7 @@ export default function GeneratingScreen() {
   let styleLabels: string[] = [];
   try { styles = JSON.parse(params.styles ?? '[]'); } catch { /* noop */ }
   try { styleLabels = JSON.parse(params.styleLabels ?? '[]'); } catch { /* noop */ }
+  const closeSession = useCloseSession(params.sessionId);
   const { results, progress, isGenerating, isComplete, startGeneration, reset } = useGenerate();
 
   const pulseOpacity = useSharedValue(1);
@@ -91,10 +92,7 @@ export default function GeneratingScreen() {
   return (
     <View className="flex-1 bg-bg">
       <View className="flex-row items-center justify-end px-5 pt-16 pb-3">
-        <ExitButton onConfirm={async () => {
-          if (params.sessionId) await apiPatch(`/api/sessions/${params.sessionId}`, { is_closed: true }).catch(() => {});
-          router.replace('/(main)');
-        }} />
+        <ExitButton onConfirm={closeSession} />
       </View>
 
       <Animated.View style={contentStyle} className="flex-1 items-center justify-center px-8">

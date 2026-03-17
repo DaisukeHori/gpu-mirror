@@ -1,18 +1,28 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '../../../lib/supabase-admin';
 import { authenticate, requireAdmin } from '../../../lib/auth';
+import { catalogQuerySchema, createCatalogItemSchema } from '@revol-mirror/shared';
 
 export async function GET(request: NextRequest) {
   const auth = await authenticate(request);
   if (auth instanceof NextResponse) return auth;
 
   const { searchParams } = new URL(request.url);
-  const categoryId = searchParams.get('category_id');
-  const gender = searchParams.get('gender');
-  const search = searchParams.get('search');
-  const sort = searchParams.get('sort') ?? 'popularity';
-  const page = parseInt(searchParams.get('page') ?? '1', 10);
-  const limit = parseInt(searchParams.get('limit') ?? '30', 10);
+  const qParsed = catalogQuerySchema.safeParse({
+    category_id: searchParams.get('category_id') ?? undefined,
+    gender: searchParams.get('gender') ?? undefined,
+    search: searchParams.get('search') ?? undefined,
+    sort: searchParams.get('sort') ?? undefined,
+    page: searchParams.get('page') ?? undefined,
+    limit: searchParams.get('limit') ?? undefined,
+  });
+  const q = qParsed.success ? qParsed.data : { page: 1, limit: 30, sort: 'popularity' as const };
+  const categoryId = qParsed.success ? q.category_id : null;
+  const gender = qParsed.success ? q.gender : null;
+  const search = qParsed.success ? q.search : null;
+  const sort = q.sort;
+  const page = q.page;
+  const limit = q.limit;
   const offset = (page - 1) * limit;
 
   let query = supabaseAdmin
@@ -61,23 +71,25 @@ export async function POST(request: NextRequest) {
   const adminCheck = requireAdmin(auth);
   if (adminCheck) return adminCheck;
 
-  let body: Record<string, unknown>;
+  let body: unknown;
   try {
     body = await request.json();
   } catch {
     return NextResponse.json({ error: 'Bad Request', message: 'Invalid JSON' }, { status: 400 });
   }
 
+  const parsed = createCatalogItemSchema.safeParse(body);
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: 'Bad Request', message: parsed.error.issues[0]?.message ?? 'Validation failed' },
+      { status: 400 },
+    );
+  }
+
   const { data: item, error } = await supabaseAdmin
     .from('catalog_items')
     .insert({
-      title: body.title,
-      description: body.description,
-      image_path: body.image_path,
-      thumbnail_path: body.thumbnail_path,
-      category_id: body.category_id,
-      tags: body.tags,
-      gender: body.gender,
+      ...parsed.data,
       created_by: auth.staffId,
     })
     .select('*, category:catalog_categories(*)')

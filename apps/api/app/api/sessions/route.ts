@@ -1,25 +1,27 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '../../../lib/supabase-admin';
 import { authenticate } from '../../../lib/auth';
+import { createSessionSchema, listSessionsSchema } from '@revol-mirror/shared';
 
 export async function POST(request: NextRequest) {
   const auth = await authenticate(request);
   if (auth instanceof NextResponse) return auth;
 
-  let body: Record<string, unknown>;
+  let body: unknown;
   try {
     body = await request.json();
   } catch {
     return NextResponse.json({ error: 'Bad Request', message: 'Invalid JSON' }, { status: 400 });
   }
-  const { customer_photo_path, store_code } = body;
 
-  if (!customer_photo_path) {
+  const parsed = createSessionSchema.safeParse(body);
+  if (!parsed.success) {
     return NextResponse.json(
-      { error: 'Bad Request', message: 'customer_photo_path is required' },
+      { error: 'Bad Request', message: parsed.error.issues[0]?.message ?? 'Validation failed' },
       { status: 400 },
     );
   }
+  const { customer_photo_path, store_code } = parsed.data;
 
   const { data: session, error } = await supabaseAdmin
     .from('sessions')
@@ -46,8 +48,11 @@ export async function GET(request: NextRequest) {
   if (auth instanceof NextResponse) return auth;
 
   const { searchParams } = new URL(request.url);
-  const page = parseInt(searchParams.get('page') ?? '1', 10);
-  const limit = parseInt(searchParams.get('limit') ?? '20', 10);
+  const qParsed = listSessionsSchema.safeParse({
+    page: searchParams.get('page') ?? undefined,
+    limit: searchParams.get('limit') ?? undefined,
+  });
+  const { page, limit } = qParsed.success ? qParsed.data : { page: 1, limit: 20 };
   const offset = (page - 1) * limit;
 
   let query = supabaseAdmin

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '../../../../../../lib/supabase-admin';
 import { authenticate } from '../../../../../../lib/auth';
+import { updateGenerationSchema } from '@revol-mirror/shared';
 
 export async function PATCH(
   request: NextRequest,
@@ -10,11 +11,19 @@ export async function PATCH(
   if (auth instanceof NextResponse) return auth;
 
   const { id, genId } = await params;
-  let body: Record<string, unknown>;
+  let body: unknown;
   try {
     body = await request.json();
   } catch {
     return NextResponse.json({ error: 'Bad Request', message: 'Invalid JSON' }, { status: 400 });
+  }
+
+  const parsed = updateGenerationSchema.safeParse(body);
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: 'Bad Request', message: parsed.error.issues[0]?.message ?? 'Validation failed' },
+      { status: 400 },
+    );
   }
 
   const { data: session } = await supabaseAdmin
@@ -30,9 +39,9 @@ export async function PATCH(
     return NextResponse.json({ error: 'Forbidden', message: 'Access denied' }, { status: 403 });
   }
 
-  const update: Record<string, unknown> = {};
-  if (body.is_favorite !== undefined) update.is_favorite = body.is_favorite;
-  if (body.is_selected !== undefined) update.is_selected = body.is_selected;
+  const update = Object.fromEntries(
+    Object.entries(parsed.data).filter(([, v]) => v !== undefined),
+  );
 
   if (Object.keys(update).length === 0) {
     return NextResponse.json({ error: 'Bad Request', message: 'No valid fields to update' }, { status: 400 });

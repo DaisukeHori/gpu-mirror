@@ -28,3 +28,13 @@ export const generateRequestSchema = z.object({
   styles: z.array(styleInputSchema).min(1).max(10),
   angles: z.array(angleSchema).min(1).default(['front', 'three_quarter', 'side', 'back', 'glamour']),
 });
+
+export const proxyImageSchema = z.object({
+  url: z.string().url(),
+  session_id: z.string().uuid(),
+});
+
+export const updateGenerationSchema = z.object({
+  is_favorite: z.boolean().optional(),
+  is_selected: z.boolean().optional(),
+});

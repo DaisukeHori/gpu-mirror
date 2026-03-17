@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { View, Text, Pressable, Alert } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { apiGet, apiPatch, apiPost } from '../../lib/api';
+import { useCloseSession } from '../../hooks/useCloseSession';
 import type { Generation } from '../../lib/types';
 import { ANGLES, ANGLE_LABELS } from '../../lib/constants';
 import { ExitButton } from '../../components/common/ExitButton';
@@ -26,6 +27,7 @@ export default function ResultScreen() {
   const [shareVisible, setShareVisible] = useState(false);
   const [loading, setLoading] = useState(true);
   const [retryingIds, setRetryingIds] = useState<Set<string>>(new Set());
+  const closeSession = useCloseSession(sessionId);
 
   const fetchSession = useCallback(async () => {
     if (!sessionId) return;
@@ -111,16 +113,7 @@ export default function ResultScreen() {
     }
   };
 
-  const handleExit = async () => {
-    try {
-      if (sessionId) {
-        await apiPatch(`/api/sessions/${sessionId}`, { is_closed: true });
-      }
-    } catch {
-      // best-effort close
-    }
-    router.replace('/(main)');
-  };
+  const handleExit = closeSession;
 
   const handleAddStyles = () => {
     if (!sessionId) return;

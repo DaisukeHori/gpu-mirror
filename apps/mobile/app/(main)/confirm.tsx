@@ -4,7 +4,8 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { Image } from 'expo-image';
 import { ExitButton } from '../../components/common/ExitButton';
 import { HapticButton } from '../../components/common/HapticButton';
-import { apiGet, apiPatch } from '../../lib/api';
+import { apiGet } from '../../lib/api';
+import { useCloseSession } from '../../hooks/useCloseSession';
 import type { SelectedStyle } from '../../lib/types';
 
 interface HairColor {
@@ -26,6 +27,8 @@ export default function ConfirmScreen() {
     selectedColorId: string;
     selectedColorName: string;
   }>();
+
+  const closeSession = useCloseSession(params.sessionId);
 
   let rawStyles: SelectedStyle[] = [];
   try { rawStyles = JSON.parse(params.styles ?? '[]'); } catch { /* noop */ }
@@ -105,10 +108,7 @@ export default function ConfirmScreen() {
           <Text className="text-text-muted text-sm tracking-wide">戻る</Text>
         </Pressable>
         <Text className="text-text-primary text-base font-medium tracking-wide">確認</Text>
-        <ExitButton onConfirm={async () => {
-          if (params.sessionId) await apiPatch(`/api/sessions/${params.sessionId}`, { is_closed: true }).catch(() => {});
-          router.replace('/(main)');
-        }} />
+        <ExitButton onConfirm={closeSession} />
       </View>
 
       <ScrollView className="flex-1 px-5" showsVerticalScrollIndicator={false}>

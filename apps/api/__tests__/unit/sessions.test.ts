@@ -62,7 +62,7 @@ describe('POST /api/sessions', () => {
     const { status, body } = await parseResponse(res);
 
     expect(status).toBe(400);
-    expect(body.message).toContain('customer_photo_path');
+    expect(body.error).toBe('Bad Request');
   });
 
   it('returns 201 with session on success', async () => {

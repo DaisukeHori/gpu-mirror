@@ -4,7 +4,7 @@ import { authenticate } from '../../../lib/auth';
 import { getAIProvider } from '../../../lib/ai-gateway';
 import { resizeImage } from '../../../lib/image-utils';
 import { createConcurrencyLimiter, withTimeout } from '../../../lib/concurrency';
-import { ANGLES, buildPrompt } from '@revol-mirror/shared';
+import { ANGLES, buildPrompt, generateRequestSchema } from '@revol-mirror/shared';
 import type { SimulationMode } from '@revol-mirror/shared';
 
 interface GenerationTask {
@@ -60,20 +60,21 @@ export async function POST(request: NextRequest) {
   const auth = await authenticate(request);
   if (auth instanceof NextResponse) return auth;
 
-  let body: { session_id?: string; styles?: Record<string, unknown>[]; angles?: string[] };
+  let body: unknown;
   try {
     body = await request.json();
   } catch {
     return NextResponse.json({ error: 'Bad Request', message: 'Invalid JSON' }, { status: 400 });
   }
-  const { session_id, styles, angles: requestedAngles } = body;
 
-  if (!session_id || !Array.isArray(styles) || styles.length === 0) {
+  const parsed = generateRequestSchema.safeParse(body);
+  if (!parsed.success) {
     return NextResponse.json(
-      { error: 'Bad Request', message: 'session_id and styles required' },
+      { error: 'Bad Request', message: parsed.error.issues[0]?.message ?? 'Validation failed' },
       { status: 400 },
     );
   }
+  const { session_id, styles, angles: requestedAngles } = parsed.data;
 
   const { data: session } = await supabaseAdmin
     .from('sessions')

@@ -63,7 +63,7 @@ describe('POST /api/proxy-image', () => {
   it('proxies a Pinterest image and returns storage path', async () => {
     const req = createRequest('/api/proxy-image', {
       method: 'POST',
-      body: { url: 'https://i.pinimg.com/originals/abc.jpg', session_id: 'sess-1' },
+      body: { url: 'https://i.pinimg.com/originals/abc.jpg', session_id: '550e8400-e29b-41d4-a716-446655440000' },
     });
 
     const res = await POST(req);
@@ -77,7 +77,7 @@ describe('POST /api/proxy-image', () => {
   it('returns 400 when url is missing', async () => {
     const req = createRequest('/api/proxy-image', {
       method: 'POST',
-      body: { session_id: 'sess-1' },
+      body: { session_id: '550e8400-e29b-41d4-a716-446655440000' },
     });
 
     const res = await POST(req);
@@ -97,7 +97,7 @@ describe('POST /api/proxy-image', () => {
   it('rejects non-Pinterest URLs', async () => {
     const req = createRequest('/api/proxy-image', {
       method: 'POST',
-      body: { url: 'https://evil.com/malware.jpg', session_id: 'sess-1' },
+      body: { url: 'https://evil.com/malware.jpg', session_id: '550e8400-e29b-41d4-a716-446655440000' },
     });
 
     const res = await POST(req);
@@ -110,7 +110,7 @@ describe('POST /api/proxy-image', () => {
   it('rejects non-http protocols', async () => {
     const req = createRequest('/api/proxy-image', {
       method: 'POST',
-      body: { url: 'ftp://i.pinimg.com/abc.jpg', session_id: 'sess-1' },
+      body: { url: 'ftp://i.pinimg.com/abc.jpg', session_id: '550e8400-e29b-41d4-a716-446655440000' },
     });
 
     const res = await POST(req);
@@ -123,7 +123,7 @@ describe('POST /api/proxy-image', () => {
     );
     const req = createRequest('/api/proxy-image', {
       method: 'POST',
-      body: { url: 'https://i.pinimg.com/abc.jpg', session_id: 'sess-1' },
+      body: { url: 'https://i.pinimg.com/abc.jpg', session_id: '550e8400-e29b-41d4-a716-446655440000' },
     });
 
     const res = await POST(req);
@@ -135,7 +135,7 @@ describe('POST /api/proxy-image', () => {
 
     const req = createRequest('/api/proxy-image', {
       method: 'POST',
-      body: { url: 'https://i.pinimg.com/originals/abc.jpg', session_id: 'sess-1' },
+      body: { url: 'https://i.pinimg.com/originals/abc.jpg', session_id: '550e8400-e29b-41d4-a716-446655440000' },
     });
 
     const res = await POST(req);
@@ -147,7 +147,7 @@ describe('POST /api/proxy-image', () => {
 
     const req = createRequest('/api/proxy-image', {
       method: 'POST',
-      body: { url: 'https://i.pinimg.com/originals/abc.jpg', session_id: 'sess-1' },
+      body: { url: 'https://i.pinimg.com/originals/abc.jpg', session_id: '550e8400-e29b-41d4-a716-446655440000' },
     });
 
     const res = await POST(req);

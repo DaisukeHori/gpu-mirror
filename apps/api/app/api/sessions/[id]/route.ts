@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '../../../../lib/supabase-admin';
 import { authenticate } from '../../../../lib/auth';
+import { updateSessionSchema } from '@revol-mirror/shared';
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const auth = await authenticate(request);
@@ -71,22 +72,30 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     return NextResponse.json({ error: 'Forbidden', message: 'Access denied' }, { status: 403 });
   }
 
-  let body: Record<string, unknown>;
+  let body: unknown;
   try {
     body = await request.json();
   } catch {
     return NextResponse.json({ error: 'Bad Request', message: 'Invalid JSON' }, { status: 400 });
   }
 
+  const parsed = updateSessionSchema.safeParse(body);
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: 'Bad Request', message: parsed.error.issues[0]?.message ?? 'Validation failed' },
+      { status: 400 },
+    );
+  }
+
   const update: Record<string, unknown> = {};
-  if (body.is_closed !== undefined) {
-    update.is_closed = body.is_closed;
-    if (body.is_closed) {
+  if (parsed.data.is_closed !== undefined) {
+    update.is_closed = parsed.data.is_closed;
+    if (parsed.data.is_closed) {
       update.closed_at = new Date().toISOString();
     }
   }
-  if (typeof body.customer_photo_path === 'string' && body.customer_photo_path) {
-    update.customer_photo_path = body.customer_photo_path;
+  if (parsed.data.customer_photo_path) {
+    update.customer_photo_path = parsed.data.customer_photo_path;
   }
 
   if (Object.keys(update).length === 0) {

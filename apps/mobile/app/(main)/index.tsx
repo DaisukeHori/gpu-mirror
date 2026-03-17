@@ -76,13 +76,21 @@ export default function WelcomeScreen() {
 
   return (
     <View className="flex-1 bg-bg items-center justify-center">
-      {/* History button — minimal, top-right */}
-      <Pressable
-        className="absolute top-16 right-6 px-4 py-2 rounded-pill bg-bg-surface border border-border"
-        onPress={() => setHistoryVisible(true)}
-      >
-        <Text className="text-text-muted text-xs tracking-wide">履歴</Text>
-      </Pressable>
+      {/* Top buttons — settings left, history right */}
+      <View className="absolute top-16 left-6 right-6 flex-row justify-between">
+        <Pressable
+          className="px-4 py-2 rounded-pill bg-bg-surface border border-border"
+          onPress={() => router.push('/settings')}
+        >
+          <Text className="text-text-muted text-xs tracking-wide">設定</Text>
+        </Pressable>
+        <Pressable
+          className="px-4 py-2 rounded-pill bg-bg-surface border border-border"
+          onPress={() => setHistoryVisible(true)}
+        >
+          <Text className="text-text-muted text-xs tracking-wide">履歴</Text>
+        </Pressable>
+      </View>
 
       {/* Logo */}
       <Animated.View style={logoStyle} className="items-center">

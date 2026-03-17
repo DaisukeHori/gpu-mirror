@@ -2,9 +2,9 @@ import { useState } from 'react';
 import { View, Text, Pressable, ScrollView } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import * as Haptics from 'expo-haptics';
-import { apiPatch } from '../../lib/api';
 import type { SelectedStyle } from '../../lib/types';
 import { ExitButton } from '../../components/common/ExitButton';
+import { useCloseSession } from '../../hooks/useCloseSession';
 import { PinterestBrowser } from '../../components/explore/PinterestBrowser';
 import { CatalogGrid } from '../../components/explore/CatalogGrid';
 import { ImageUploader } from '../../components/explore/ImageUploader';
@@ -28,6 +28,7 @@ export default function ExploreScreen() {
     customerPhotoPath: string;
     customerPhotoUrl: string;
   }>();
+  const closeSession = useCloseSession(sessionId);
   const [activeTab, setActiveTab] = useState<TabKey>('pinterest');
   const [selectedStyles, setSelectedStyles] = useState<SelectedStyle[]>([]);
   const [selectedColor, setSelectedColor] = useState<{ id: string; name: string; hex: string } | null>(null);
@@ -69,10 +70,7 @@ export default function ExploreScreen() {
         <Text className="text-text-primary text-base font-medium tracking-wide">
           スタイルを探す
         </Text>
-        <ExitButton onConfirm={async () => {
-          if (sessionId) await apiPatch(`/api/sessions/${sessionId}`, { is_closed: true }).catch(() => {});
-          router.replace('/(main)');
-        }} />
+        <ExitButton onConfirm={closeSession} />
       </View>
 
       {/* Tabs — underline style for premium feel */}

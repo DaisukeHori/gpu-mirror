@@ -41,9 +41,13 @@ vi.mock('../../lib/supabase-admin', () => {
   };
 });
 
+const { mockRequireAdmin } = vi.hoisted(() => ({
+  mockRequireAdmin: vi.fn().mockReturnValue(null),
+}));
+
 vi.mock('../../lib/auth', () => ({
   authenticate: mockAuth,
-  requireAdmin: vi.fn().mockReturnValue(null),
+  requireAdmin: mockRequireAdmin,
 }));
 
 import { GET, POST } from '../../app/api/catalog/route';
@@ -121,13 +125,13 @@ describe('POST /api/catalog', () => {
       id: 'ci-new',
       title: '新スタイル',
       image_path: 'new.jpg',
-      category_id: 'cat-1',
+      category_id: '550e8400-e29b-41d4-a716-446655440000',
     };
     mockInsertSingle.mockResolvedValue({ data: mockItem, error: null });
 
     const req = createRequest('/api/catalog', {
       method: 'POST',
-      body: { title: '新スタイル', image_path: 'new.jpg', category_id: 'cat-1' },
+      body: { title: '新スタイル', image_path: 'new.jpg', category_id: '550e8400-e29b-41d4-a716-446655440000' },
     });
     const res = await POST(req);
     const { status, body } = await parseResponse(res);
@@ -145,5 +149,26 @@ describe('POST /api/catalog', () => {
     });
     const res = await POST(req);
     expect(res.status).toBe(500);
+  });
+
+  it('returns 403 when non-admin tries to create', async () => {
+    mockRequireAdmin.mockReturnValueOnce(
+      NextResponse.json({ error: 'Forbidden', message: 'Admin required' }, { status: 403 }),
+    );
+    const req = createRequest('/api/catalog', {
+      method: 'POST',
+      body: { title: 'test', image_path: 'test.jpg' },
+    });
+    const res = await POST(req);
+    expect(res.status).toBe(403);
+  });
+
+  it('returns 400 when validation fails', async () => {
+    const req = createRequest('/api/catalog', {
+      method: 'POST',
+      body: { title: '' },
+    });
+    const res = await POST(req);
+    expect(res.status).toBe(400);
   });
 });

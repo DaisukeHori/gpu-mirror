@@ -44,7 +44,7 @@ export { COLOR_FAMILIES, HAIR_COLOR_SEEDS } from './constants/hair-colors';
 export { DARK_THEME, LIGHT_THEME, RADIUS, ANIMATION, BORDER_WIDTH } from './constants/design-tokens';
 
 export { createSessionSchema, updateSessionSchema, listSessionsSchema } from './validators/session';
-export { generateRequestSchema, styleInputSchema } from './validators/generate';
+export { generateRequestSchema, styleInputSchema, proxyImageSchema, updateGenerationSchema } from './validators/generate';
 export {
   createCatalogItemSchema,
   updateCatalogItemSchema,

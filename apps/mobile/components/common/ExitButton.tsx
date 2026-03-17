@@ -4,11 +4,22 @@ import { useState } from 'react';
 import { ExitDialog } from './ExitDialog';
 
 interface ExitButtonProps {
-  onConfirm: () => void;
+  onConfirm: () => void | Promise<void>;
 }
 
 export function ExitButton({ onConfirm }: ExitButtonProps) {
   const [visible, setVisible] = useState(false);
+  const [closing, setClosing] = useState(false);
+
+  const handleConfirm = async () => {
+    setClosing(true);
+    setVisible(false);
+    try {
+      await onConfirm();
+    } finally {
+      setClosing(false);
+    }
+  };
 
   return (
     <>
@@ -18,16 +29,16 @@ export function ExitButton({ onConfirm }: ExitButtonProps) {
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
           setVisible(true);
         }}
+        disabled={closing}
       >
-        <Text className="text-text-muted text-xs tracking-wide">終了</Text>
+        <Text className="text-text-muted text-xs tracking-wide">
+          {closing ? '...' : '終了'}
+        </Text>
       </Pressable>
       <ExitDialog
         visible={visible}
         onCancel={() => setVisible(false)}
-        onConfirm={() => {
-          setVisible(false);
-          onConfirm();
-        }}
+        onConfirm={handleConfirm}
       />
     </>
   );
