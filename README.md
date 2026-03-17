@@ -356,8 +356,10 @@ export function requireAdmin(auth): NextResponse | null {
     simulation_mode: 'style' | 'color' | 'style_and_color';
     reference_type: 'catalog' | 'upload' | 'pinterest' | 'color_only';
     reference_photo_path?: string;
+    reference_source_url?: string;
     catalog_item_id?: string;
     hair_color_id?: string;
+    hair_color_custom?: string;
     style_label?: string;
   }>;
   angles?: Array<'front' | 'three_quarter' | 'side' | 'back' | 'glamour'>;
@@ -444,11 +446,14 @@ export function requireAdmin(auth): NextResponse | null {
 └──────────────┘     └───────────────────┘     │ catalog_item_id (FK) ─┼──→ catalog_items
                                                 │ hair_color_id (FK)   ─┼──→ hair_colors
                                                 │ generated_photo_path  │
+                                                │ style_label            │
                                                 │ status (pending/      │
                                                 │   generating/         │
                                                 │   completed/failed)   │
                                                 │ is_favorite           │
+                                                │ is_selected           │
                                                 │ ai_latency_ms         │
+                                                │ ai_cost_usd           │
                                                 └───────────────────────┘
 
 ┌───────────────────┐     ┌───────────────┐     ┌──────────────┐

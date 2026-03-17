@@ -7,7 +7,7 @@ export const ANGLE_LABELS: Record<Angle, string> = {
   three_quarter: '斜め',
   side: '横',
   back: '後ろ',
-  glamour: '📸映え',
+  glamour: '映え',
 };
 
 export const ANGLE_INSTRUCTIONS: Record<Angle, string> = {

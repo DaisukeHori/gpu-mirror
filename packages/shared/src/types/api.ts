@@ -17,7 +17,7 @@ export interface ListSessionsRequest {
 export interface ListSessionsResponse {
   sessions: (Session & {
     generation_count: number;
-    first_front_photo?: string;
+    first_front_photo: string | null;
   })[];
   total: number;
   page: number;
@@ -26,7 +26,10 @@ export interface ListSessionsResponse {
 
 export interface GetSessionResponse {
   session: Session & {
-    generations: SessionGeneration[];
+    session_generations: (SessionGeneration & {
+      photo_url: string | null;
+    })[];
+    customer_photo_url: string | null;
   };
 }
 
@@ -88,8 +91,15 @@ export interface UploadImageResponse {
 export interface CatalogListResponse {
   items: (import('./database').CatalogItem & {
     category?: import('./database').CatalogCategory;
+    image_url: string | null;
+    thumbnail_url: string | null;
   })[];
   total: number;
+}
+
+export interface UpdateGenerationRequest {
+  is_favorite?: boolean;
+  is_selected?: boolean;
 }
 
 export interface ColorsListResponse {
@@ -99,5 +109,4 @@ export interface ColorsListResponse {
 export interface ApiError {
   error: string;
   message: string;
-  status: number;
 }

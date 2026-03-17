@@ -1,7 +1,6 @@
 import { GoogleGenAI } from '@google/genai';
 import type { AIProvider, GenerateSingleInput, GenerateSingleOutput } from '../ai-gateway';
-
-const COST_PER_IMAGE = 0.039;
+import { COST_PER_IMAGE_USD } from '@revol-mirror/shared';
 
 export class GeminiProvider implements AIProvider {
   private client: GoogleGenAI;
@@ -66,7 +65,7 @@ export class GeminiProvider implements AIProvider {
     return {
       image: imageBuffer,
       latencyMs,
-      estimatedCostUsd: COST_PER_IMAGE,
+      estimatedCostUsd: COST_PER_IMAGE_USD,
       model: this.model,
     };
   }

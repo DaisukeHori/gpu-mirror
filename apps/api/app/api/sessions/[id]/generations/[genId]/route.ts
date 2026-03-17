@@ -24,10 +24,10 @@ export async function PATCH(
     .single();
 
   if (!session) {
-    return NextResponse.json({ error: 'Not Found' }, { status: 404 });
+    return NextResponse.json({ error: 'Not Found', message: 'Session not found' }, { status: 404 });
   }
   if (session.staff_id !== auth.staffId && !['admin', 'manager'].includes(auth.role)) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    return NextResponse.json({ error: 'Forbidden', message: 'Access denied' }, { status: 403 });
   }
 
   const update: Record<string, unknown> = {};
@@ -47,7 +47,7 @@ export async function PATCH(
     .single();
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: 'Internal Server Error', message: error.message }, { status: 500 });
   }
 
   return NextResponse.json({ generation: data });

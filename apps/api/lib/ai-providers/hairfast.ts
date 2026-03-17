@@ -1,4 +1,4 @@
-import type { AIProvider } from '../ai-gateway';
+import type { AIProvider, GenerateSingleInput, GenerateSingleOutput } from '../ai-gateway';
 
 /**
  * HairFastGAN provider — Phase 2 expansion.
@@ -12,16 +12,7 @@ export class HairFastProvider implements AIProvider {
     this.endpoint = endpoint ?? process.env.HAIRFAST_ENDPOINT ?? '';
   }
 
-  async generateSingle(input: {
-    customerPhoto: Buffer;
-    referencePhoto?: Buffer;
-    prompt: string;
-  }): Promise<{
-    image: Buffer;
-    latencyMs: number;
-    estimatedCostUsd: number;
-    model: string;
-  }> {
+  async generateSingle(_input: GenerateSingleInput): Promise<GenerateSingleOutput> {
     throw new Error(
       'HairFastGAN provider is not yet implemented. ' +
       'This is a Phase 2 feature. See design doc Section 13.',
