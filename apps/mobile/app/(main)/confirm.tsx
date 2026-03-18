@@ -7,6 +7,7 @@ import { HapticButton } from '../../components/common/HapticButton';
 import { apiGet } from '../../lib/api';
 import { useCloseSession } from '../../hooks/useCloseSession';
 import type { SelectedStyle } from '../../lib/types';
+import { useAppTheme } from '../../lib/theme-provider';
 
 interface HairColor {
   id: string;
@@ -29,6 +30,7 @@ export default function ConfirmScreen() {
   }>();
 
   const closeSession = useCloseSession(params.sessionId);
+  const theme = useAppTheme();
 
   let rawStyles: SelectedStyle[] = [];
   try { rawStyles = JSON.parse(params.styles ?? '[]'); } catch { /* noop */ }
@@ -147,7 +149,7 @@ export default function ConfirmScreen() {
                   <View className="w-14 h-14 rounded-img mr-4 bg-bg-elevated items-center justify-center border border-border">
                     <View
                       className="w-8 h-8 rounded-full"
-                      style={{ backgroundColor: style.assignedColor?.hex ?? '#8A8580' }}
+                      style={{ backgroundColor: style.assignedColor?.hex ?? style.colorHex ?? theme.colors.muted }}
                     />
                   </View>
                 )}

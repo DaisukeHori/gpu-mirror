@@ -2,6 +2,7 @@ import { View, Text, Pressable, ScrollView } from 'react-native';
 import { Image } from 'expo-image';
 import type { SelectedStyle } from '../../lib/types';
 import { HapticButton } from '../common/HapticButton';
+import { useAppTheme } from '../../lib/theme-provider';
 
 interface StyleTrayProps {
   styles: SelectedStyle[];
@@ -10,6 +11,8 @@ interface StyleTrayProps {
 }
 
 export function StyleTray({ styles, onRemove, onConfirm }: StyleTrayProps) {
+  const theme = useAppTheme();
+
   if (styles.length === 0) return null;
 
   const buttonText =
@@ -27,7 +30,7 @@ export function StyleTray({ styles, onRemove, onConfirm }: StyleTrayProps) {
                 <View className="w-16 h-16 rounded-img items-center justify-center bg-bg-elevated border border-border">
                   <View
                     className="w-8 h-8 rounded-full"
-                    style={{ backgroundColor: style.colorId ? '#C8956C' : '#8A8580' }}
+                    style={{ backgroundColor: style.colorHex ?? theme.colors.muted }}
                   />
                 </View>
               ) : (

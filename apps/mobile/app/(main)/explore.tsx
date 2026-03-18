@@ -1,7 +1,6 @@
 import { useState } from 'react';
-import { View, Text, Pressable, ScrollView } from 'react-native';
+import { View, Text, Pressable, Platform } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
-import * as Haptics from 'expo-haptics';
 import type { SelectedStyle } from '../../lib/types';
 import { ExitButton } from '../../components/common/ExitButton';
 import { useCloseSession } from '../../hooks/useCloseSession';
@@ -10,6 +9,7 @@ import { CatalogGrid } from '../../components/explore/CatalogGrid';
 import { ImageUploader } from '../../components/explore/ImageUploader';
 import { ColorPalette } from '../../components/explore/ColorPalette';
 import { StyleTray } from '../../components/explore/StyleTray';
+import { impactLight } from '../../lib/haptics';
 
 export type { SelectedStyle } from '../../lib/types';
 
@@ -29,12 +29,12 @@ export default function ExploreScreen() {
     customerPhotoUrl: string;
   }>();
   const closeSession = useCloseSession(sessionId);
-  const [activeTab, setActiveTab] = useState<TabKey>('pinterest');
+  const [activeTab, setActiveTab] = useState<TabKey>(Platform.OS === 'web' ? 'catalog' : 'pinterest');
   const [selectedStyles, setSelectedStyles] = useState<SelectedStyle[]>([]);
   const [selectedColor, setSelectedColor] = useState<{ id: string; name: string; hex: string } | null>(null);
 
   const addStyle = (style: SelectedStyle) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    impactLight();
     setSelectedStyles((prev) => {
       if (prev.find((s) => s.id === style.id)) return prev;
       return [...prev, style];
@@ -80,7 +80,10 @@ export default function ExploreScreen() {
             <Pressable
               key={tab.key}
               className={`flex-1 items-center pb-3 ${activeTab === tab.key ? 'border-b-2 border-accent' : ''}`}
-              onPress={() => setActiveTab(tab.key)}
+              onPress={() => {
+                impactLight();
+                setActiveTab(tab.key);
+              }}
             >
               <Text
                 className={`text-sm ${activeTab === tab.key ? 'text-text-primary font-medium' : 'text-text-muted'}`}
@@ -116,6 +119,7 @@ export default function ExploreScreen() {
                 referenceType: 'color_only',
                 colorId: id,
                 colorName: name,
+                colorHex: hex,
               });
             }}
           />

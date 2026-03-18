@@ -1,7 +1,7 @@
 import { View, Text, Pressable, ScrollView } from 'react-native';
 import { Image } from 'expo-image';
-import * as Haptics from 'expo-haptics';
 import type { Generation } from '../../lib/types';
+import { impactLight } from '../../lib/haptics';
 
 interface CompareGridProps {
   generations: Generation[];
@@ -39,7 +39,7 @@ export function CompareGrid({
                 onPress={() => onSelectAngle(angle)}
               >
                 <Text
-                  className={`text-xs tracking-wide ${selectedAngle === angle ? 'text-bg font-semibold' : 'text-text-muted'}`}
+                  className={`text-xs tracking-wide ${selectedAngle === angle ? 'text-text-on-accent font-semibold' : 'text-text-muted'}`}
                 >
                   {angleLabels[angle]}
                 </Text>
@@ -78,7 +78,7 @@ export function CompareGrid({
                 <Pressable
                   className="p-1"
                   onPress={() => {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    impactLight();
                     onToggleFavorite(gen.id, gen.is_favorite);
                   }}
                 >

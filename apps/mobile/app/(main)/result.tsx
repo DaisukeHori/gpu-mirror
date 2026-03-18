@@ -11,7 +11,7 @@ import { DetailView } from '../../components/result/DetailView';
 import { FullscreenViewer } from '../../components/result/FullscreenViewer';
 import { ShareSheet } from '../../components/result/ShareSheet';
 import { HapticButton } from '../../components/common/HapticButton';
-import * as Haptics from 'expo-haptics';
+import { impactLight } from '../../lib/haptics';
 
 type ViewMode = 'compare' | 'detail';
 
@@ -61,7 +61,7 @@ export default function ResultScreen() {
   const angleLabels = ANGLE_LABELS as Record<string, string>;
 
   const toggleFavorite = async (genId: string, current: boolean) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    impactLight();
     const newValue = !current;
     setGenerations((prev) =>
       prev.map((g) => (g.id === genId ? { ...g, is_favorite: newValue } : g)),
@@ -87,7 +87,7 @@ export default function ResultScreen() {
     try {
       const data = await apiPost<{
         generation_id: string;
-        status: string;
+        status: 'completed';
         photo_url?: string;
         ai_latency_ms?: number;
       }>(`/api/sessions/${sessionId}/generations/${genId}/retry`);
@@ -162,7 +162,7 @@ export default function ResultScreen() {
               onPress={() => setViewMode(mode)}
             >
               <Text
-                className={`text-xs tracking-wide ${viewMode === mode ? 'text-bg font-semibold' : 'text-text-muted'}`}
+                className={`text-xs tracking-wide ${viewMode === mode ? 'text-text-on-accent font-semibold' : 'text-text-muted'}`}
               >
                 {mode === 'compare' ? '比較' : '個別'}
               </Text>

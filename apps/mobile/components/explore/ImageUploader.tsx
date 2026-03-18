@@ -4,6 +4,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { uploadFile } from '../../lib/api';
 import { HapticButton } from '../common/HapticButton';
 import type { SelectedStyle } from '../../lib/types';
+import { useAppTheme } from '../../lib/theme-provider';
 
 interface ImageUploaderProps {
   sessionId: string;
@@ -12,6 +13,7 @@ interface ImageUploaderProps {
 
 export function ImageUploader({ sessionId, onUpload }: ImageUploaderProps) {
   const [uploading, setUploading] = useState(false);
+  const theme = useAppTheme();
 
   const handlePick = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -20,15 +22,17 @@ export function ImageUploader({ sessionId, onUpload }: ImageUploaderProps) {
     });
 
     if (result.canceled || !result.assets[0]) return;
+    const asset = result.assets[0] as (typeof result.assets)[number] & { file?: Blob | null };
 
     setUploading(true);
     try {
       const uploaded = await uploadFile(
         '/api/upload',
         {
-          uri: result.assets[0].uri,
-          name: 'reference.jpg',
-          type: 'image/jpeg',
+          uri: asset.uri,
+          name: asset.fileName ?? 'reference.jpg',
+          type: asset.mimeType ?? 'image/jpeg',
+          file: asset.file ?? undefined,
         },
         sessionId,
         'reference-photos',
@@ -52,7 +56,7 @@ export function ImageUploader({ sessionId, onUpload }: ImageUploaderProps) {
     <View className="flex-1 items-center justify-center px-8">
       {uploading ? (
         <View className="items-center">
-          <ActivityIndicator size="large" color="#C8956C" />
+          <ActivityIndicator size="large" color={theme.colors.accent} />
           <Text className="text-text-secondary text-sm mt-4 tracking-wide">
             アップロード中...
           </Text>

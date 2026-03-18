@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { View, Text, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, Alert, ActivityIndicator, Platform } from 'react-native';
 import { makeRedirectUri } from 'expo-auth-session';
 import * as WebBrowser from 'expo-web-browser';
 import { supabase } from '../../lib/supabase';
 import { HapticButton } from '../../components/common/HapticButton';
+import { useAppTheme } from '../../lib/theme-provider';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -11,6 +12,7 @@ const redirectUri = makeRedirectUri({ scheme: 'revol-mirror' });
 
 export default function LoginScreen() {
   const [loading, setLoading] = useState(false);
+  const theme = useAppTheme();
 
   const handleLogin = async () => {
     setLoading(true);
@@ -29,6 +31,10 @@ export default function LoginScreen() {
       }
 
       if (data?.url) {
+        if (Platform.OS === 'web' && typeof window !== 'undefined') {
+          window.location.assign(data.url);
+          return;
+        }
         await WebBrowser.openAuthSessionAsync(data.url, redirectUri);
       }
     } catch (err) {
@@ -48,7 +54,7 @@ export default function LoginScreen() {
       </Text>
 
       {loading ? (
-        <ActivityIndicator size="large" color="#C8956C" />
+        <ActivityIndicator size="large" color={theme.colors.accent} />
       ) : (
         <HapticButton title="Azure AD でログイン" size="lg" onPress={handleLogin} />
       )}

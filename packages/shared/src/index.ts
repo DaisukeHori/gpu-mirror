@@ -42,6 +42,7 @@ export { buildPrompt, COST_PER_IMAGE_USD } from './constants/prompts';
 export type { PromptParams } from './constants/prompts';
 export { COLOR_FAMILIES, HAIR_COLOR_SEEDS } from './constants/hair-colors';
 export { DARK_THEME, LIGHT_THEME, RADIUS, ANIMATION, BORDER_WIDTH } from './constants/design-tokens';
+export type { DesignTheme } from './constants/design-tokens';
 
 export { createSessionSchema, updateSessionSchema, listSessionsSchema } from './validators/session';
 export { generateRequestSchema, styleInputSchema, proxyImageSchema, updateGenerationSchema } from './validators/generate';

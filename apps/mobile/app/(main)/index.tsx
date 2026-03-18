@@ -8,16 +8,15 @@ import Animated, {
   Easing,
 } from 'react-native-reanimated';
 import { router } from 'expo-router';
-import { supabase } from '../../lib/supabase';
 import { HapticButton } from '../../components/common/HapticButton';
 import { HistoryPanel } from '../../components/history/HistoryPanel';
+import { useCurrentStaff } from '../../hooks/useCurrentStaff';
 
 const ease = { duration: 600, easing: Easing.out(Easing.quad) };
 
 export default function WelcomeScreen() {
-  const [staffName, setStaffName] = useState('');
-  const [storeName, setStoreName] = useState('');
   const [historyVisible, setHistoryVisible] = useState(false);
+  const { staff } = useCurrentStaff();
 
   const logoOpacity = useSharedValue(0);
   const logoTranslateY = useSharedValue(12);
@@ -29,27 +28,6 @@ export default function WelcomeScreen() {
     logoTranslateY.value = withDelay(100, withTiming(0, ease));
     buttonOpacity.value = withDelay(500, withTiming(1, ease));
     staffOpacity.value = withDelay(800, withTiming(1, ease));
-  }, []);
-
-  useEffect(() => {
-    (async () => {
-      try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
-          const { data: staff } = await supabase
-            .from('staffs')
-            .select('display_name, store_code')
-            .eq('auth_user_id', user.id)
-            .single();
-          if (staff) {
-            setStaffName(staff.display_name);
-            setStoreName(staff.store_code ?? '');
-          }
-        }
-      } catch {
-        // staff info is non-critical
-      }
-    })();
   }, []);
 
   const logoStyle = useAnimatedStyle(() => ({
@@ -109,9 +87,9 @@ export default function WelcomeScreen() {
 
       {/* Staff info */}
       <Animated.View style={staffStyle}>
-        {(staffName || storeName) && (
+        {(staff?.display_name || staff?.store_code) && (
           <Text className="text-text-muted text-xs mt-14 tracking-wide">
-            {staffName}{storeName ? `  —  ${storeName}` : ''}
+            {staff?.display_name ?? ''}{staff?.store_code ? `  —  ${staff.store_code}` : ''}
           </Text>
         )}
       </Animated.View>

@@ -1,7 +1,7 @@
 import { Pressable, Text } from 'react-native';
-import * as Haptics from 'expo-haptics';
 import { useState } from 'react';
 import { ExitDialog } from './ExitDialog';
+import { impactLight } from '../../lib/haptics';
 
 interface ExitButtonProps {
   onConfirm: () => void | Promise<void>;
@@ -26,7 +26,7 @@ export function ExitButton({ onConfirm }: ExitButtonProps) {
       <Pressable
         className="px-4 py-2 rounded-pill bg-bg-elevated border border-border"
         onPress={() => {
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          impactLight();
           setVisible(true);
         }}
         disabled={closing}

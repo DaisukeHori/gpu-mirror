@@ -1,14 +1,6 @@
 import { useState, useCallback } from 'react';
 import { apiPost, apiPatch, apiGet } from '../lib/api';
-
-interface Session {
-  id: string;
-  staff_id: string;
-  customer_photo_path: string;
-  is_closed: boolean;
-  created_at: string;
-  generations?: unknown[];
-}
+import type { CreateSessionResponse, GetSessionResponse, Session } from '@revol-mirror/shared';
 
 export function useSession() {
   const [session, setSession] = useState<Session | null>(null);
@@ -19,7 +11,7 @@ export function useSession() {
     setLoading(true);
     setError(null);
     try {
-      const res = await apiPost<{ session: Session }>('/api/sessions', {
+      const res = await apiPost<CreateSessionResponse>('/api/sessions', {
         customer_photo_path: customerPhotoPath,
         store_code: storeCode,
       });
@@ -38,7 +30,7 @@ export function useSession() {
     setLoading(true);
     setError(null);
     try {
-      const res = await apiGet<{ session: Session }>(`/api/sessions/${id}`);
+      const res = await apiGet<GetSessionResponse>(`/api/sessions/${id}`);
       setSession(res.session);
       return res.session;
     } catch (err) {

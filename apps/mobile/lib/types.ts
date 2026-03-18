@@ -12,6 +12,7 @@ export interface SelectedStyle {
   catalogItemId?: string;
   colorId?: string;
   colorName?: string;
+  colorHex?: string;
   sourceUrl?: string;
 }
 

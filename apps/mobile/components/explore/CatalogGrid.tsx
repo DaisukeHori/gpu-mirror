@@ -1,8 +1,8 @@
 import { View, Text, Pressable, FlatList } from 'react-native';
 import { Image } from 'expo-image';
-import * as Haptics from 'expo-haptics';
 import { useCatalog } from '../../hooks/useCatalog';
 import type { SelectedStyle } from '../../lib/types';
+import { impactLight } from '../../lib/haptics';
 
 interface CatalogItem {
   id: string;
@@ -21,7 +21,7 @@ export function CatalogGrid({ onSelectItem }: CatalogGridProps) {
   const { items, loading, sortBy, setSortBy } = useCatalog();
 
   const handleSelect = (item: CatalogItem) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    impactLight();
     onSelectItem({
       id: `catalog-${item.id}`,
       thumbnailUrl: item.thumbnail_url ?? item.image_url ?? '',
@@ -40,7 +40,7 @@ export function CatalogGrid({ onSelectItem }: CatalogGridProps) {
           onPress={() => setSortBy('popularity')}
         >
           <Text
-            className={`text-xs tracking-wide ${sortBy === 'popularity' ? 'text-bg font-semibold' : 'text-text-muted'}`}
+            className={`text-xs tracking-wide ${sortBy === 'popularity' ? 'text-text-on-accent font-semibold' : 'text-text-muted'}`}
           >
             人気順
           </Text>
@@ -50,7 +50,7 @@ export function CatalogGrid({ onSelectItem }: CatalogGridProps) {
           onPress={() => setSortBy('created_at')}
         >
           <Text
-            className={`text-xs tracking-wide ${sortBy === 'created_at' ? 'text-bg font-semibold' : 'text-text-muted'}`}
+            className={`text-xs tracking-wide ${sortBy === 'created_at' ? 'text-text-on-accent font-semibold' : 'text-text-muted'}`}
           >
             新着順
           </Text>

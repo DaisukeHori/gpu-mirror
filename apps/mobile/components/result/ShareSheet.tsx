@@ -1,9 +1,9 @@
-import { View, Text, Pressable, Modal, Alert } from 'react-native';
+import { View, Text, Pressable, Modal, Alert, Linking, Platform } from 'react-native';
 import * as Sharing from 'expo-sharing';
 import * as FileSystem from 'expo-file-system';
-import * as Haptics from 'expo-haptics';
 import { useState } from 'react';
 import type { Generation } from '../../lib/types';
+import { impactLight } from '../../lib/haptics';
 
 interface ShareSheetProps {
   visible: boolean;
@@ -15,7 +15,7 @@ export function ShareSheet({ visible, onClose, generations }: ShareSheetProps) {
   const [sharing, setSharing] = useState(false);
 
   const handleShareAll = async () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    impactLight();
     setSharing(true);
     try {
       const frontGens = generations.filter((g) => g.angle === 'glamour' || g.angle === 'front');
@@ -25,17 +25,33 @@ export function ShareSheet({ visible, onClose, generations }: ShareSheetProps) {
         return;
       }
 
-      const localUri = `${FileSystem.cacheDirectory}share_${target.id}.jpg`;
-      await FileSystem.downloadAsync(target.photo_url, localUri);
-
-      const isAvailable = await Sharing.isAvailableAsync();
-      if (isAvailable) {
-        await Sharing.shareAsync(localUri, {
-          mimeType: 'image/jpeg',
-          dialogTitle: 'REVOL Mirror — スタイルシミュレーション',
-        });
+      if (Platform.OS === 'web') {
+        if (typeof navigator !== 'undefined' && navigator.share) {
+          await navigator.share({
+            title: 'REVOL Mirror — スタイルシミュレーション',
+            url: target.photo_url,
+          });
+        } else if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+          await navigator.clipboard.writeText(target.photo_url);
+          Alert.alert('リンクをコピーしました');
+        } else {
+          await Linking.openURL(target.photo_url);
+        }
       } else {
-        Alert.alert('この端末では共有機能を利用できません');
+        const localFile = await FileSystem.File.downloadFileAsync(
+          target.photo_url,
+          new FileSystem.File(FileSystem.Paths.cache, `share_${target.id}_${Date.now()}.jpg`),
+        );
+
+        const isAvailable = await Sharing.isAvailableAsync();
+        if (isAvailable) {
+          await Sharing.shareAsync(localFile.uri, {
+            mimeType: 'image/jpeg',
+            dialogTitle: 'REVOL Mirror — スタイルシミュレーション',
+          });
+        } else {
+          Alert.alert('この端末では共有機能を利用できません');
+        }
       }
     } catch {
       Alert.alert('共有に失敗しました');
@@ -63,7 +79,7 @@ export function ShareSheet({ visible, onClose, generations }: ShareSheetProps) {
               onPress={handleShareAll}
               disabled={sharing}
             >
-              <Text className="text-bg text-sm font-semibold tracking-wide">
+              <Text className="text-text-on-accent text-sm font-semibold tracking-wide">
                 {sharing ? '準備中...' : '共有シートを開く'}
               </Text>
             </Pressable>

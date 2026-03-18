@@ -8,7 +8,7 @@ import Animated, {
   withTiming,
   Easing,
 } from 'react-native-reanimated';
-import * as Haptics from 'expo-haptics';
+import { impactLight } from '../../lib/haptics';
 
 interface FullscreenViewerProps {
   imageUrl: string;
@@ -61,7 +61,7 @@ export function FullscreenViewer({ imageUrl, beforeImageUrl, onClose }: Fullscre
     .minDuration(200)
     .onStart(() => {
       if (beforeImageUrl) {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        impactLight();
         setShowBefore(true);
       }
     })
@@ -98,15 +98,25 @@ export function FullscreenViewer({ imageUrl, beforeImageUrl, onClose }: Fullscre
       </GestureDetector>
 
       {/* Before indicator */}
-      {showBefore && (
-        <View className="absolute top-20 left-0 right-0 items-center">
+      <View className="absolute top-16 left-6 flex-row gap-3">
+        {beforeImageUrl && (
+          <Pressable
+            className="bg-bg-elevated/80 px-5 py-2.5 rounded-pill"
+            onPress={() => setShowBefore((prev) => !prev)}
+          >
+            <Text className="text-text-primary text-xs tracking-wide">
+              {showBefore ? 'After' : 'Before'}
+            </Text>
+          </Pressable>
+        )}
+        {showBefore && (
           <View className="bg-bg-elevated/80 px-5 py-2 rounded-pill">
             <Text className="text-text-primary text-xs tracking-widest font-medium">
               BEFORE
             </Text>
           </View>
-        </View>
-      )}
+        )}
+      </View>
 
       {/* Close button */}
       <Pressable

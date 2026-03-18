@@ -1,5 +1,5 @@
 import { Pressable, View } from 'react-native';
-import * as Haptics from 'expo-haptics';
+import { impactMedium } from '../../lib/haptics';
 
 interface ShutterButtonProps {
   onPress: () => void;
@@ -7,7 +7,7 @@ interface ShutterButtonProps {
 
 export function ShutterButton({ onPress }: ShutterButtonProps) {
   const handlePress = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    impactMedium();
     onPress();
   };
 

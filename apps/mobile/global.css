@@ -1,3 +1,33 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Noto+Sans+JP:wght@400;500;600&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+:root {
+  --color-bg: 15 14 12;
+  --color-bg-surface: 26 25 22;
+  --color-bg-elevated: 37 35 32;
+  --color-border: 51 48 44;
+  --color-text-primary: 245 242 236;
+  --color-text-secondary: 197 191 182;
+  --color-text-muted: 138 133 128;
+  --color-text-on-accent: 15 14 12;
+  --color-accent: 200 149 108;
+  --color-success: 123 174 127;
+  --color-destructive: 212 131 109;
+  --color-warning: 200 176 108;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: 'Inter', 'Noto Sans JP', sans-serif;
+  background: rgb(var(--color-bg));
+  color: rgb(var(--color-text-primary));
+}

@@ -1,22 +1,27 @@
 import type { Config } from 'tailwindcss';
 
 export default {
-  content: ['./app/**/*.{ts,tsx}', './components/**/*.{ts,tsx}'],
+  content: ['./app/**/*.{ts,tsx}', './components/**/*.{ts,tsx}', './lib/**/*.{ts,tsx}'],
   presets: [require('nativewind/preset')],
   theme: {
     extend: {
       colors: {
-        bg: { DEFAULT: '#0F0E0C', surface: '#1A1916', elevated: '#252320' },
-        border: { DEFAULT: '#33302C' },
-        text: {
-          primary: '#F5F2EC',
-          secondary: '#C5BFB6',
-          muted: '#8A8580',
+        bg: {
+          DEFAULT: 'rgb(var(--color-bg) / <alpha-value>)',
+          surface: 'rgb(var(--color-bg-surface) / <alpha-value>)',
+          elevated: 'rgb(var(--color-bg-elevated) / <alpha-value>)',
         },
-        accent: { DEFAULT: '#C8956C' },
-        success: '#7BAE7F',
-        destructive: '#D4836D',
-        warning: '#C8B06C',
+        border: { DEFAULT: 'rgb(var(--color-border) / <alpha-value>)' },
+        text: {
+          primary: 'rgb(var(--color-text-primary) / <alpha-value>)',
+          secondary: 'rgb(var(--color-text-secondary) / <alpha-value>)',
+          muted: 'rgb(var(--color-text-muted) / <alpha-value>)',
+          'on-accent': 'rgb(var(--color-text-on-accent) / <alpha-value>)',
+        },
+        accent: { DEFAULT: 'rgb(var(--color-accent) / <alpha-value>)' },
+        success: 'rgb(var(--color-success) / <alpha-value>)',
+        destructive: 'rgb(var(--color-destructive) / <alpha-value>)',
+        warning: 'rgb(var(--color-warning) / <alpha-value>)',
       },
       borderRadius: { card: '12px', pill: '99px', img: '8px' },
       borderWidth: { thin: '0.5px' },

@@ -1,5 +1,5 @@
 import { Modal, View, Text, Pressable } from 'react-native';
-import * as Haptics from 'expo-haptics';
+import { impactMedium } from '../../lib/haptics';
 
 interface ExitDialogProps {
   visible: boolean;
@@ -25,7 +25,7 @@ export function ExitDialog({ visible, onCancel, onConfirm }: ExitDialogProps) {
             <Pressable
               className="px-5 py-2.5 rounded-pill bg-destructive"
               onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                impactMedium();
                 onConfirm();
               }}
             >

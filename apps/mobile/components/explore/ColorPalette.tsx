@@ -1,7 +1,7 @@
 import { View, Text, Pressable, ScrollView } from 'react-native';
 import { useState, useEffect } from 'react';
-import * as Haptics from 'expo-haptics';
 import { apiGet } from '../../lib/api';
+import { impactLight } from '../../lib/haptics';
 
 interface HairColor {
   id: string;
@@ -46,7 +46,7 @@ export function ColorPalette({ selectedColorId, onSelectColor }: ColorPalettePro
                 key={color.id}
                 className="items-center"
                 onPress={() => {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  impactLight();
                   onSelectColor(color.id, color.name, color.hex_code);
                 }}
               >

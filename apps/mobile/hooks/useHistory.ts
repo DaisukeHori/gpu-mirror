@@ -1,13 +1,8 @@
 import { useState, useCallback } from 'react';
 import { apiGet } from '../lib/api';
+import type { ListSessionsResponse } from '@revol-mirror/shared';
 
-interface SessionSummary {
-  id: string;
-  created_at: string;
-  is_closed: boolean;
-  generation_count: number;
-  first_front_photo: string | null;
-}
+type SessionSummary = ListSessionsResponse['sessions'][number];
 
 export function useHistory() {
   const [sessions, setSessions] = useState<SessionSummary[]>([]);
@@ -18,12 +13,7 @@ export function useHistory() {
   const fetchSessions = useCallback(async (pageNum: number = 1) => {
     setLoading(true);
     try {
-      const res = await apiGet<{
-        sessions: SessionSummary[];
-        total: number;
-        page: number;
-        limit: number;
-      }>(`/api/sessions?page=${pageNum}&limit=20`);
+      const res = await apiGet<ListSessionsResponse>(`/api/sessions?page=${pageNum}&limit=20`);
 
       if (pageNum === 1) {
         setSessions(res.sessions);

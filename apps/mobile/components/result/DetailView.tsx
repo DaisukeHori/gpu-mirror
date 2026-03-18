@@ -1,7 +1,7 @@
 import { View, Text, Pressable, ScrollView } from 'react-native';
 import { Image } from 'expo-image';
-import * as Haptics from 'expo-haptics';
 import type { Generation } from '../../lib/types';
+import { impactLight } from '../../lib/haptics';
 
 interface DetailViewProps {
   generations: Generation[];
@@ -45,7 +45,7 @@ export function DetailView({
                   onPress={() => onSelectStyleGroup(group)}
                 >
                   <Text
-                    className={`text-xs tracking-wide ${selectedStyleGroup === group ? 'text-bg font-semibold' : 'text-text-muted'}`}
+                    className={`text-xs tracking-wide ${selectedStyleGroup === group ? 'text-text-on-accent font-semibold' : 'text-text-muted'}`}
                   >
                     {gen?.style_label ?? `Style ${group}`}
                   </Text>
@@ -103,7 +103,7 @@ export function DetailView({
             onPress={() => {
               const gen = filtered[0];
               if (gen) {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                impactLight();
                 onToggleFavorite(gen.id, gen.is_favorite);
               }
             }}

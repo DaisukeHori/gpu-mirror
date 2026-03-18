@@ -5,7 +5,7 @@ import Animated, {
   withTiming,
   Easing,
 } from 'react-native-reanimated';
-import * as Haptics from 'expo-haptics';
+import { impactLight } from '../../lib/haptics';
 
 interface HapticButtonProps extends PressableProps {
   title: string;
@@ -28,7 +28,7 @@ const disabledVariantStyles = {
 };
 
 const textVariantStyles = {
-  primary: 'text-bg font-semibold',
+  primary: 'text-text-on-accent font-semibold',
   secondary: 'text-text-primary',
   destructive: 'text-white font-semibold',
   ghost: 'text-text-secondary',
@@ -79,7 +79,7 @@ export function HapticButton({
 
   const handlePress = (e: Parameters<NonNullable<PressableProps['onPress']>>[0]) => {
     if (disabled) return;
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    impactLight();
     onPress?.(e);
   };
 

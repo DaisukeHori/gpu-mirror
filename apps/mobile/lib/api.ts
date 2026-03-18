@@ -2,6 +2,13 @@ import { supabase } from './supabase';
 
 const API_BASE = process.env.EXPO_PUBLIC_API_BASE_URL ?? 'http://localhost:3000';
 
+export interface UploadableFile {
+  uri: string;
+  name: string;
+  type: string;
+  file?: Blob | null;
+}
+
 async function getAuthHeaders(): Promise<Record<string, string>> {
   const { data: { session } } = await supabase.auth.getSession();
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
@@ -60,13 +67,26 @@ export async function apiDelete(path: string): Promise<void> {
 
 export async function uploadFile(
   path: string,
-  file: { uri: string; name: string; type: string },
+  file: UploadableFile,
   sessionId: string,
   bucket: string = 'customer-photos',
 ): Promise<{ storage_path: string; url: string }> {
   const { data: { session } } = await supabase.auth.getSession();
   const formData = new FormData();
-  formData.append('file', file as unknown as Blob);
+  const isWeb = typeof window !== 'undefined' && typeof document !== 'undefined';
+
+  if (isWeb) {
+    let blob: Blob;
+    if (file.file) {
+      blob = file.file;
+    } else {
+      blob = await fetch(file.uri).then((response) => response.blob());
+    }
+    formData.append('file', blob, file.name);
+  } else {
+    formData.append('file', file as unknown as Blob);
+  }
+
   formData.append('session_id', sessionId);
   formData.append('bucket', bucket);
 
@@ -124,7 +144,6 @@ export async function apiSSE(
 
   const decoder = new TextDecoder();
   let buffer = '';
-  let receivedAllCompleted = false;
 
   try {
     while (true) {
@@ -140,9 +159,6 @@ export async function apiSSE(
           try {
             const data = JSON.parse(line.slice(6));
             callbacks.onEvent(data);
-            if (data.type === 'all_completed') {
-              receivedAllCompleted = true;
-            }
           } catch {
             // skip malformed JSON
           }
