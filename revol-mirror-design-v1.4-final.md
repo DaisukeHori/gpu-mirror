@@ -41,7 +41,7 @@
 | BFF (API) | Next.js 16 API Routes | Vercel有料アカウント |
 | DB / Storage | Supabase (PostgreSQL + Storage) | 有料アカウント |
 | 認証 | Supabase Auth + Azure AD (Entra ID) SAML | 既存SSO連携 |
-| AI エンジン | Google Gemini API (`gemini-2.0-flash-preview-image-generation`) | AI Gatewayで抽象化 |
+| AI エンジン | Google Gemini API (`gemini-3.1-flash-image-preview`) | AI Gatewayで抽象化 |
 | 画像処理 | sharp (サーバーサイドリサイズ) | BFF内 |
 | テスト | vitest v4 | globals, node環境 |
 | バリデーション | zod | リクエスト/レスポンス検証 |
@@ -713,7 +713,7 @@ create table public.sessions (
   staff_id              uuid not null references public.staffs(id),
   store_code            text,
   customer_photo_path   text not null,
-  ai_model              text not null default 'gemini-2.0-flash-preview-image-generation',
+  ai_model              text not null default 'gemini-3.1-flash-image-preview',
   is_closed             boolean not null default false,
   closed_at             timestamptz,
   hubspot_contact_id    text,
@@ -1465,7 +1465,7 @@ export async function authenticate(req: NextRequest): Promise<{
 NEXT_PUBLIC_SUPABASE_URL=https://xxxxx.supabase.co
 SUPABASE_SERVICE_ROLE_KEY=eyJhbGci...
 GEMINI_API_KEY=AIza...
-GEMINI_MODEL=gemini-2.0-flash-preview-image-generation
+GEMINI_MODEL=gemini-3.1-flash-image-preview
 API_BASE_URL=https://revol-mirror-api.vercel.app
 IMAGE_MAX_SIZE_MB=10
 SESSION_RETENTION_DAYS=90

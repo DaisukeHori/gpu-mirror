@@ -12,7 +12,7 @@ export class GeminiProvider implements AIProvider {
       throw new Error('GEMINI_API_KEY environment variable is not set');
     }
     this.client = new GoogleGenAI({ apiKey });
-    this.model = process.env.GEMINI_MODEL ?? 'gemini-2.0-flash-preview-image-generation';
+    this.model = process.env.GEMINI_MODEL ?? 'gemini-3.1-flash-image-preview';
   }
 
   async generateSingle(input: GenerateSingleInput): Promise<GenerateSingleOutput> {

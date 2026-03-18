@@ -49,5 +49,8 @@ yarn-error.log*
 # Testing
 coverage/
 
+# Supabase CLI temp
+supabase/.temp/
+
 # Misc
 *.tsbuildinfo

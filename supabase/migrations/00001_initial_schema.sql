@@ -1,11 +1,11 @@
 -- REVOL Mirror: Initial schema
 -- Design doc v1.3 Section 6.1
 
-create extension if not exists "uuid-ossp";
+-- gen_random_uuid() is built into PG 13+ / Supabase, no extension needed
 
 -- staffs
 create table public.staffs (
-  id              uuid primary key default uuid_generate_v4(),
+  id              uuid primary key default gen_random_uuid(),
   auth_user_id    uuid unique references auth.users(id) on delete cascade,
   entra_id_oid    text unique,
   display_name    text not null,
@@ -24,7 +24,7 @@ create index idx_staffs_entra on public.staffs(entra_id_oid);
 
 -- catalog_categories
 create table public.catalog_categories (
-  id              uuid primary key default uuid_generate_v4(),
+  id              uuid primary key default gen_random_uuid(),
   name            text not null,
   display_name    text not null,
   icon_name       text,
@@ -35,7 +35,7 @@ create table public.catalog_categories (
 
 -- catalog_items
 create table public.catalog_items (
-  id              uuid primary key default uuid_generate_v4(),
+  id              uuid primary key default gen_random_uuid(),
   category_id     uuid references public.catalog_categories(id) on delete set null,
   title           text not null,
   description     text,
@@ -58,7 +58,7 @@ create index idx_catalog_popularity on public.catalog_items(popularity desc);
 
 -- hair_colors
 create table public.hair_colors (
-  id              uuid primary key default uuid_generate_v4(),
+  id              uuid primary key default gen_random_uuid(),
   name            text not null,
   name_en         text,
   hex_code        text not null,
@@ -79,7 +79,7 @@ create index idx_hair_colors_family on public.hair_colors(color_family);
 
 -- sessions
 create table public.sessions (
-  id                    uuid primary key default uuid_generate_v4(),
+  id                    uuid primary key default gen_random_uuid(),
   staff_id              uuid not null references public.staffs(id),
   store_code            text,
   customer_photo_path   text not null,
@@ -101,7 +101,7 @@ create index idx_sessions_hubspot on public.sessions(hubspot_contact_id)
 
 -- session_generations
 create table public.session_generations (
-  id                    uuid primary key default uuid_generate_v4(),
+  id                    uuid primary key default gen_random_uuid(),
   session_id            uuid not null references public.sessions(id) on delete cascade,
   style_group           integer not null,
   angle                 text not null
