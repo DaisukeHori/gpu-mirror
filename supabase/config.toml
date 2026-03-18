@@ -1,0 +1,12 @@
+[project]
+id = "flmeolcfutuwwbjmzyoz"
+
+[api]
+enabled = true
+schemas = ["public", "storage"]
+
+[db]
+major_version = 15
+
+[storage]
+enabled = true

@@ -83,7 +83,7 @@ create table public.sessions (
   staff_id              uuid not null references public.staffs(id),
   store_code            text,
   customer_photo_path   text not null,
-  ai_model              text not null default 'gemini-2.0-flash-preview-image-generation',
+  ai_model              text not null default 'gemini-3.1-flash-image-preview',
   is_closed             boolean not null default false,
   closed_at             timestamptz,
   hubspot_contact_id    text,
