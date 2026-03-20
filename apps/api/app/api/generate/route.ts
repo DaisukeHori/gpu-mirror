@@ -146,7 +146,7 @@ export async function POST(request: NextRequest) {
 
     for (const angle of angles) {
       const dedupKey = `${style.reference_photo_path ?? ''}::${angle}`;
-      if (style.reference_photo_path && completedSet.has(dedupKey)) {
+      if (!custom_instruction && style.reference_photo_path && completedSet.has(dedupKey)) {
         continue;
       }
 
