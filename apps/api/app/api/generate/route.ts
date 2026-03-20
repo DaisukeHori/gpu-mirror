@@ -236,10 +236,10 @@ export async function POST(request: NextRequest) {
                 .update({ status: 'generating' })
                 .eq('id', frontTask.generationId);
 
-              const orderedAngles = ['front', 'three_quarter', 'side', 'back', 'glamour'];
-              const angleLabelsArr = orderedAngles.map((a) => ANGLE_LABELS[a as keyof typeof ANGLE_LABELS] ?? a);
+              const keyAngles = ['front', 'glamour'];
+              const angleLabelsArr = keyAngles.map((a) => ANGLE_LABELS[a as keyof typeof ANGLE_LABELS] ?? a);
               const additionalImgs: Buffer[] = [];
-              for (const a of orderedAngles) {
+              for (const a of keyAngles) {
                 const buf = prevGenImages.get(a);
                 if (buf) additionalImgs.push(buf);
               }
@@ -283,6 +283,7 @@ export async function POST(request: NextRequest) {
                 style_label: frontTask.style.style_label,
               });
             } catch (err) {
+              console.error('[Refine Step1 FAILED]', err instanceof Error ? err.message : err);
               try { await supabaseAdmin.from('session_generations').update({ status: 'failed' }).eq('id', frontTask.generationId); } catch {}
               sendEvent({ type: 'generation_failed', generation_id: frontTask.generationId, style_group: frontTask.styleGroup, angle: 'front', error: err instanceof Error ? err.message : 'Unknown error' });
             }
@@ -380,6 +381,7 @@ export async function POST(request: NextRequest) {
               style_label: task.style.style_label,
             });
           } catch (err) {
+            console.error('[Generation FAILED]', task.angle, err instanceof Error ? err.message : err);
             try {
               await supabaseAdmin
                 .from('session_generations')
