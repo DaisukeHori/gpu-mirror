@@ -27,6 +27,7 @@ export const generateRequestSchema = z.object({
   session_id: z.string().uuid(),
   styles: z.array(styleInputSchema).min(1).max(10),
   custom_instruction: z.string().max(500).optional(),
+  previous_style_group: z.number().int().positive().optional(),
   angles: z.array(angleSchema).min(1).default(['front', 'three_quarter', 'side', 'back', 'glamour']),
 });
 

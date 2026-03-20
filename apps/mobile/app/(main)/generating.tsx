@@ -84,6 +84,7 @@ export default function GeneratingScreen() {
     styles: string;
     styleLabels: string;
     customInstruction?: string;
+    previousStyleGroup?: string;
   }>();
 
   let styles: { simulation_mode: string; reference_type: string; [key: string]: unknown }[] = [];
@@ -110,7 +111,7 @@ export default function GeneratingScreen() {
 
   useEffect(() => {
     if (params.sessionId && styles.length > 0) {
-      startGeneration(params.sessionId, styles, undefined, params.customInstruction);
+      startGeneration(params.sessionId, styles, undefined, params.customInstruction, params.previousStyleGroup ? parseInt(params.previousStyleGroup, 10) : undefined);
     }
     return () => { reset(); };
   }, []);

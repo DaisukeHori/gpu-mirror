@@ -119,6 +119,7 @@ export default function ResultScreen() {
           styles: JSON.stringify([style]),
           styleLabels: JSON.stringify([style.style_label]),
           customInstruction: instruction,
+          previousStyleGroup: String(viewerGen.style_group),
         },
       });
     } catch (err) {

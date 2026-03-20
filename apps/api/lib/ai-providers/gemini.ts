@@ -36,6 +36,17 @@ export class GeminiProvider implements AIProvider {
       });
     }
 
+    if (input.additionalImages) {
+      for (const img of input.additionalImages) {
+        parts.push({
+          inlineData: {
+            mimeType: 'image/jpeg',
+            data: img.toString('base64'),
+          },
+        });
+      }
+    }
+
     parts.push({ text: input.prompt });
 
     const response = await this.client.models.generateContent({

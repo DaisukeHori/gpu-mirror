@@ -1,6 +1,7 @@
 export interface GenerateSingleInput {
   customerPhoto: Buffer;
   referencePhoto?: Buffer;
+  additionalImages?: Buffer[];
   prompt: string;
 }
 
