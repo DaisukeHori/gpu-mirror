@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { View, Text, Pressable, Alert, Image as RNImage, useWindowDimensions, ScrollView, ActivityIndicator, FlatList, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
-import { apiGet, apiPatch, apiPost } from '../../lib/api';
+import { apiGet, apiPatch, apiPost, apiSSE } from '../../lib/api';
 import { useCloseSession } from '../../hooks/useCloseSession';
 import type { Generation } from '../../lib/types';
 import { ANGLES, ANGLE_LABELS } from '../../lib/constants';
@@ -132,15 +132,20 @@ export default function ResultScreen() {
         reference_source_url: match.reference_source_url,
         style_label: (match.style_label ?? 'Pinterest') + ' (refined)',
       };
-      const res = await apiPost<{ message?: string }>('/api/generate', {
-        session_id: sessionId,
-        styles: [style],
-        custom_instruction: instruction,
+      await new Promise<void>((resolve, reject) => {
+        apiSSE(
+          '/api/generate',
+          { session_id: sessionId, styles: [style], custom_instruction: instruction },
+          {
+            onEvent: () => {},
+            onError: (err) => reject(err),
+            onComplete: () => resolve(),
+          },
+        );
       });
-      await new Promise((r) => setTimeout(r, 3000));
       await fetchSession();
-      const newGens = generations.filter((g) => g.status === 'completed' && g.photo_url);
-      const latestGlamour = newGens
+      const updatedGens = generations.filter((g) => g.status === 'completed' && g.photo_url);
+      const latestGlamour = updatedGens
         .filter((g) => g.angle === 'glamour')
         .sort((a, b) => b.style_group - a.style_group)[0];
       if (latestGlamour) setViewerGen(latestGlamour);
