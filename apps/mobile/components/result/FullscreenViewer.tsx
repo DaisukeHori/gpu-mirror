@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { View, Pressable, Text, Dimensions } from 'react-native';
-import { Image } from 'expo-image';
+import { useState as useStateRN } from 'react';
+import { View, Pressable, Text, Dimensions, Image as RNImage, StyleSheet, ActivityIndicator } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
   useSharedValue,
@@ -21,6 +21,7 @@ const timing = { duration: 200, easing: Easing.out(Easing.quad) };
 
 export function FullscreenViewer({ imageUrl, beforeImageUrl, onClose }: FullscreenViewerProps) {
   const [showBefore, setShowBefore] = useState(false);
+  const [loading, setLoading] = useStateRN(true);
   const scale = useSharedValue(1);
   const translateX = useSharedValue(0);
   const translateY = useSharedValue(0);
@@ -86,45 +87,46 @@ export function FullscreenViewer({ imageUrl, beforeImageUrl, onClose }: Fullscre
   const displayUrl = showBefore && beforeImageUrl ? beforeImageUrl : imageUrl;
 
   return (
-    <View className="absolute inset-0 bg-black z-50">
-      <GestureDetector gesture={composed}>
-        <Animated.View style={[{ flex: 1 }, animatedStyle]}>
-          <Image
-            source={{ uri: displayUrl }}
-            style={{ width: SCREEN_WIDTH, height: SCREEN_HEIGHT }}
-            contentFit="contain"
-          />
-        </Animated.View>
-      </GestureDetector>
+    <View style={StyleSheet.absoluteFillObject} pointerEvents="box-none">
+      <View style={{ ...StyleSheet.absoluteFillObject, backgroundColor: '#000', zIndex: 50 }}>
+        <GestureDetector gesture={composed}>
+          <Animated.View style={[{ flex: 1 }, animatedStyle]}>
+            <RNImage
+              source={{ uri: displayUrl, cache: 'force-cache' }}
+              style={{ width: SCREEN_WIDTH, height: SCREEN_HEIGHT }}
+              resizeMode="contain"
+              onLoadStart={() => setLoading(true)}
+              onLoad={() => setLoading(false)}
+              onError={() => setLoading(false)}
+            />
+            {loading && (
+              <View style={{ ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center' }}>
+                <ActivityIndicator size="large" color="#B8956A" />
+              </View>
+            )}
+          </Animated.View>
+        </GestureDetector>
 
-      {/* Before indicator */}
-      <View className="absolute top-16 left-6 flex-row gap-3">
-        {beforeImageUrl && (
-          <Pressable
-            className="bg-bg-elevated/80 px-5 py-2.5 rounded-pill"
-            onPress={() => setShowBefore((prev) => !prev)}
-          >
-            <Text className="text-text-primary text-xs tracking-wide">
-              {showBefore ? 'After' : 'Before'}
-            </Text>
-          </Pressable>
-        )}
-        {showBefore && (
-          <View className="bg-bg-elevated/80 px-5 py-2 rounded-pill">
-            <Text className="text-text-primary text-xs tracking-widest font-medium">
-              BEFORE
-            </Text>
-          </View>
-        )}
+        <View style={{ position: 'absolute', top: 60, left: 24, flexDirection: 'row', gap: 12 }}>
+          {beforeImageUrl && (
+            <Pressable
+              style={{ backgroundColor: 'rgba(30,28,26,0.8)', paddingHorizontal: 20, paddingVertical: 10, borderRadius: 999 }}
+              onPress={() => setShowBefore((prev) => !prev)}
+            >
+              <Text style={{ color: '#E8E0D8', fontSize: 13 }}>
+                {showBefore ? 'After' : 'Before'}
+              </Text>
+            </Pressable>
+          )}
+        </View>
+
+        <Pressable
+          style={{ position: 'absolute', top: 60, right: 24, backgroundColor: 'rgba(30,28,26,0.8)', paddingHorizontal: 20, paddingVertical: 10, borderRadius: 999 }}
+          onPress={onClose}
+        >
+          <Text style={{ color: '#E8E0D8', fontSize: 13 }}>閉じる</Text>
+        </Pressable>
       </View>
-
-      {/* Close button */}
-      <Pressable
-        className="absolute top-16 right-6 bg-bg-elevated/80 rounded-pill px-5 py-2.5"
-        onPress={onClose}
-      >
-        <Text className="text-text-primary text-xs tracking-wide">閉じる</Text>
-      </Pressable>
     </View>
   );
 }

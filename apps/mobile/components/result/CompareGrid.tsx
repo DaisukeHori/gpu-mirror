@@ -1,5 +1,5 @@
-import { useEffect, useMemo } from 'react';
-import { View, Text, Pressable, ScrollView, Image as RNImage, useWindowDimensions } from 'react-native';
+import { useEffect, useMemo, useState } from 'react';
+import { View, Text, Pressable, ScrollView, Image as RNImage, useWindowDimensions, ActivityIndicator } from 'react-native';
 import type { Generation } from '../../lib/types';
 import { impactLight } from '../../lib/haptics';
 import { useAppTheme } from '../../lib/theme-provider';
@@ -33,17 +33,28 @@ function GenCard({
   onImagePress: (url: string) => void;
   onToggleFavorite: (id: string, current: boolean) => void;
 }) {
+  const [imgLoading, setImgLoading] = useState(true);
+
   return (
     <Pressable
       style={{ width: cardWidth }}
       onPress={() => gen.photo_url && onImagePress(gen.photo_url)}
     >
       {gen.photo_url ? (
-        <RNImage
-          source={{ uri: gen.photo_url, cache: 'force-cache' }}
-          style={{ width: cardWidth, height: cardHeight, borderRadius: 10 }}
-          resizeMode="cover"
-        />
+        <View style={{ width: cardWidth, height: cardHeight, borderRadius: 10, overflow: 'hidden' }}>
+          <RNImage
+            source={{ uri: gen.photo_url, cache: 'force-cache' }}
+            style={{ width: cardWidth, height: cardHeight }}
+            resizeMode="cover"
+            onLoad={() => setImgLoading(false)}
+            onError={() => setImgLoading(false)}
+          />
+          {imgLoading && (
+            <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(30,28,26,0.9)' }}>
+              <ActivityIndicator size="small" color="#B8956A" />
+            </View>
+          )}
+        </View>
       ) : (
         <View
           style={{

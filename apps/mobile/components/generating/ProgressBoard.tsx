@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { View, Text, Pressable } from 'react-native';
+import { View, Text, Pressable, Image as RNImage } from 'react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -12,6 +12,7 @@ import { ANGLES, ANGLE_LABELS } from '../../lib/constants';
 interface ProgressBoardProps {
   progress: Map<number, StyleGroupProgress>;
   styleLabels: string[];
+  styleThumbnails?: string[];
   onViewCompleted: (styleGroup: number) => void;
 }
 
@@ -30,58 +31,83 @@ function AnimatedBar({ percent }: { percent: number }) {
   }));
 
   return (
-    <View className="h-1 bg-bg-elevated rounded-full overflow-hidden">
-      <Animated.View className="h-full bg-accent rounded-full" style={style} />
+    <View style={{ height: 3, backgroundColor: 'rgba(151,145,137,0.1)', borderRadius: 2, overflow: 'hidden' }}>
+      <Animated.View style={[{ height: '100%', borderRadius: 2, backgroundColor: '#B8956A' }, style]} />
     </View>
   );
 }
 
-export function ProgressBoard({ progress, styleLabels, onViewCompleted }: ProgressBoardProps) {
+export function ProgressBoard({ progress, styleLabels, styleThumbnails, onViewCompleted }: ProgressBoardProps) {
   return (
-    <View className="w-full max-w-lg gap-4">
+    <View style={{ width: '100%', maxWidth: 520, gap: 12 }}>
       {Array.from(progress.entries()).map(([groupNum, group]) => {
         const completed = group.completed.length;
         const failed = group.failed.length;
         const pct = Math.round(((completed + failed) / group.total) * 100);
         const allDone = completed + failed >= group.total;
         const label = styleLabels[groupNum - 1] ?? `Style ${groupNum}`;
+        const thumbUrl = styleThumbnails?.[groupNum - 1];
 
         return (
           <Pressable
             key={groupNum}
-            className="bg-bg-surface rounded-card p-5 border border-border"
+            style={{
+              backgroundColor: 'rgba(151,145,137,0.06)',
+              borderRadius: 12,
+              borderWidth: 0.5,
+              borderColor: 'rgba(151,145,137,0.12)',
+              overflow: 'hidden',
+            }}
             onPress={() => allDone && onViewCompleted(groupNum)}
             disabled={!allDone}
           >
-            <View className="flex-row items-center justify-between mb-3">
-              <Text className="text-text-primary text-sm font-medium tracking-wide">
-                {label}
-              </Text>
-              <Text className="text-text-muted text-xs">{pct}%</Text>
-            </View>
+            <View style={{ flexDirection: 'row' }}>
+              {thumbUrl ? (
+                <RNImage
+                  source={{ uri: thumbUrl }}
+                  style={{ width: 80, height: 100, borderTopLeftRadius: 12, borderBottomLeftRadius: allDone ? 0 : 12 }}
+                  resizeMode="cover"
+                />
+              ) : null}
 
-            <AnimatedBar percent={pct} />
-
-            <View className="flex-row gap-3 mt-3">
-              {ANGLES.map((angle) => {
-                const isDone = group.completed.includes(angle);
-                const isFailed = group.failed.includes(angle);
-                return (
-                  <Text
-                    key={angle}
-                    className={`text-[11px] tracking-wide ${isDone ? 'text-success' : isFailed ? 'text-destructive' : 'text-text-muted'}`}
-                  >
-                    {ANGLE_LABELS[angle]}
-                    {isDone ? ' ✓' : isFailed ? ' ✗' : ''}
+              <View style={{ flex: 1, padding: 16, justifyContent: 'center' }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                  <Text style={{ color: '#E8E0D8', fontSize: 15, fontWeight: '600', letterSpacing: 0.3 }}>
+                    {label}
                   </Text>
-                );
-              })}
+                  <Text style={{ color: 'rgba(151,145,137,0.72)', fontSize: 13 }}>{pct}%</Text>
+                </View>
+
+                <AnimatedBar percent={pct} />
+
+                <View style={{ flexDirection: 'row', gap: 10, marginTop: 10 }}>
+                  {ANGLES.map((angle) => {
+                    const isDone = group.completed.includes(angle);
+                    const isFailed = group.failed.includes(angle);
+                    return (
+                      <Text
+                        key={angle}
+                        style={{
+                          fontSize: 12,
+                          letterSpacing: 0.3,
+                          color: isDone ? '#4CAF50' : isFailed ? '#EF5350' : 'rgba(151,145,137,0.48)',
+                        }}
+                      >
+                        {ANGLE_LABELS[angle]}
+                        {isDone ? ' \u2713' : isFailed ? ' (再試行)' : ''}
+                      </Text>
+                    );
+                  })}
+                </View>
+              </View>
             </View>
 
             {allDone && (
-              <Text className="text-accent text-xs mt-3 tracking-wide">
-                タップして結果を見る
-              </Text>
+              <View style={{ paddingHorizontal: 16, paddingBottom: 12, paddingTop: 4 }}>
+                <Text style={{ color: '#B8956A', fontSize: 13, letterSpacing: 0.3 }}>
+                  タップして結果を見る
+                </Text>
+              </View>
             )}
           </Pressable>
         );
