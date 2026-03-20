@@ -1,6 +1,6 @@
 import sharp from 'sharp';
 
-const MAX_DIMENSION = 1536;
+const MAX_DIMENSION = 1024;
 const JPEG_QUALITY = 85;
 const THUMBNAIL_SIZE = 300;
 

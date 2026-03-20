@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, memo } from 'react';
 import { View, Text, Pressable, ScrollView, Image as RNImage, useWindowDimensions, ActivityIndicator } from 'react-native';
 import type { Generation } from '../../lib/types';
 import { impactLight } from '../../lib/haptics';
@@ -18,22 +18,21 @@ interface CompareGridProps {
 const GRID_PAD = 16;
 const GRID_GAP = 8;
 
-function GenCard({
+const GenCard = memo(function GenCard({
   gen,
   cardWidth,
   cardHeight,
-  theme,
   onImagePress,
   onToggleFavorite,
 }: {
   gen: Generation;
   cardWidth: number;
   cardHeight: number;
-  theme: ReturnType<typeof useAppTheme>;
   onImagePress: (url: string) => void;
   onToggleFavorite: (id: string, current: boolean) => void;
 }) {
-  const [imgLoading, setImgLoading] = useState(true);
+  const theme = useAppTheme();
+  const [imgLoaded, setImgLoaded] = useState(false);
 
   return (
     <Pressable
@@ -41,16 +40,15 @@ function GenCard({
       onPress={() => gen.photo_url && onImagePress(gen.photo_url)}
     >
       {gen.photo_url ? (
-        <View style={{ width: cardWidth, height: cardHeight, borderRadius: 10, overflow: 'hidden' }}>
+        <View style={{ width: cardWidth, height: cardHeight, borderRadius: 10, overflow: 'hidden', backgroundColor: 'rgba(151,145,137,0.06)' }}>
           <RNImage
             source={{ uri: gen.photo_url, cache: 'force-cache' }}
             style={{ width: cardWidth, height: cardHeight }}
             resizeMode="cover"
-            onLoad={() => setImgLoading(false)}
-            onError={() => setImgLoading(false)}
+            onLoad={() => setImgLoaded(true)}
           />
-          {imgLoading && (
-            <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(30,28,26,0.9)' }}>
+          {!imgLoaded && (
+            <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center' }}>
               <ActivityIndicator size="small" color="#B8956A" />
             </View>
           )}
@@ -87,7 +85,7 @@ function GenCard({
       </View>
     </Pressable>
   );
-}
+});
 
 export function CompareGrid({
   generations,
@@ -104,14 +102,17 @@ export function CompareGrid({
   const columns = styleGroups.length <= 4 ? 2 : 3;
   const cardWidth = (width - GRID_PAD * 2 - GRID_GAP * (columns - 1)) / columns;
   const cardHeight = cardWidth * 1.3;
+  const filtered = useMemo(
+    () => generations.filter((g) => g.angle === selectedAngle),
+    [generations, selectedAngle],
+  );
 
-  const gensByAngle = useMemo(() => {
-    const map = new Map<string, Generation[]>();
-    for (const angle of angles) {
-      map.set(angle, generations.filter((g) => g.angle === angle));
-    }
-    return map;
-  }, [generations, angles]);
+  useEffect(() => {
+    const urls = generations
+      .filter((g) => g.photo_url && g.angle !== selectedAngle)
+      .map((g) => g.photo_url!);
+    urls.forEach((url) => RNImage.prefetch(url));
+  }, [generations, selectedAngle]);
 
   return (
     <View style={{ flex: 1 }}>
@@ -152,33 +153,22 @@ export function CompareGrid({
         contentContainerStyle={{ paddingHorizontal: GRID_PAD, paddingBottom: 80 }}
         showsVerticalScrollIndicator={false}
       >
-        {angles.map((angle) => (
-          <View
-            key={angle}
-            style={{
-              display: angle === selectedAngle ? 'flex' : 'none',
-              flexDirection: 'row',
-              flexWrap: 'wrap',
-              gap: GRID_GAP,
-            }}
-          >
-            {styleGroups.map((group) => {
-              const gen = (gensByAngle.get(angle) ?? []).find((g) => g.style_group === group);
-              if (!gen) return null;
-              return (
-                <GenCard
-                  key={gen.id}
-                  gen={gen}
-                  cardWidth={cardWidth}
-                  cardHeight={cardHeight}
-                  theme={theme}
-                  onImagePress={onImagePress}
-                  onToggleFavorite={onToggleFavorite}
-                />
-              );
-            })}
-          </View>
-        ))}
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: GRID_GAP }}>
+          {styleGroups.map((group) => {
+            const gen = filtered.find((g) => g.style_group === group);
+            if (!gen) return null;
+            return (
+              <GenCard
+                key={`${gen.id}-${selectedAngle}`}
+                gen={gen}
+                cardWidth={cardWidth}
+                cardHeight={cardHeight}
+                onImagePress={onImagePress}
+                onToggleFavorite={onToggleFavorite}
+              />
+            );
+          })}
+        </View>
       </ScrollView>
     </View>
   );
