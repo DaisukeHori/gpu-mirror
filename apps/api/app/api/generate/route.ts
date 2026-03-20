@@ -3,7 +3,7 @@ import { supabaseAdmin } from '../../../lib/supabase-admin';
 import { authenticate } from '../../../lib/auth';
 import { getAIProvider } from '../../../lib/ai-gateway';
 import { resizeImage } from '../../../lib/image-utils';
-import { createConcurrencyLimiter, withTimeout } from '../../../lib/concurrency';
+import { createConcurrencyLimiter, withTimeout, GENERATION_TIMEOUT_MS } from '../../../lib/concurrency';
 import { ANGLES, buildPrompt, generateRequestSchema } from '@revol-mirror/shared';
 import type { SimulationMode } from '@revol-mirror/shared';
 
@@ -224,7 +224,7 @@ export async function POST(request: NextRequest) {
                 referencePhoto: cached.referencePhotoBuffer,
                 prompt,
               }),
-              60_000,
+              GENERATION_TIMEOUT_MS,
               `AI generation (${task.angle})`,
             );
 
@@ -240,6 +240,7 @@ export async function POST(request: NextRequest) {
                 generated_photo_path: storagePath,
                 ai_prompt: prompt,
                 ai_latency_ms: result.latencyMs,
+              style_label: task.style.style_label,
                 ai_cost_usd: result.estimatedCostUsd,
               })
               .eq('id', task.generationId);
@@ -256,6 +257,7 @@ export async function POST(request: NextRequest) {
               photo_url: urlData?.signedUrl,
               storage_path: storagePath,
               ai_latency_ms: result.latencyMs,
+              style_label: task.style.style_label,
             });
           } catch (err) {
             try {

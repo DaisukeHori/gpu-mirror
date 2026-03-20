@@ -1,5 +1,5 @@
 const AI_CONCURRENCY = parseInt(process.env.AI_CONCURRENCY ?? '10', 10);
-const GENERATION_TIMEOUT_MS = parseInt(process.env.GENERATION_TIMEOUT_MS ?? '60000', 10);
+export const GENERATION_TIMEOUT_MS = parseInt(process.env.GENERATION_TIMEOUT_MS ?? '60000', 10);
 
 export function createConcurrencyLimiter(limit: number = AI_CONCURRENCY) {
   let active = 0;

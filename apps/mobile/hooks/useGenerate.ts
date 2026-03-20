@@ -33,7 +33,7 @@ interface StyleInput {
 }
 
 const POLL_INTERVAL_MS = 500;
-const MAX_POLL_ATTEMPTS = 60;
+const MAX_POLL_ATTEMPTS = 600;
 
 export function useGenerate() {
   const [results, setResults] = useState<GenerationResult[]>([]);
@@ -42,7 +42,7 @@ export function useGenerate() {
   const [isComplete, setIsComplete] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
   const sessionIdRef = useRef<string | null>(null);
-  const prevGenCountRef = useRef<number>(0);
+  const prevMaxStyleGroupRef = useRef<number>(0);
 
   const upsertResult = useCallback((result: GenerationResult) => {
     setResults((prev) => {
@@ -152,8 +152,9 @@ export function useGenerate() {
       }
       setProgress(groupMap);
 
-      const hasNewGens = gens.length > prevGenCountRef.current;
-      const allDone = hasNewGens && gens.every((g) => g.status === 'completed' || g.status === 'failed');
+      const newGens = gens.filter((g) => (g.style_group ?? 0) > prevMaxStyleGroupRef.current);
+      const hasNewGens = newGens.length > 0;
+      const allDone = hasNewGens && newGens.every((g) => g.status === 'completed' || g.status === 'failed');
       return allDone;
     } catch {
       return false;
@@ -194,9 +195,10 @@ export function useGenerate() {
         const snap = await apiGet<{ session: { session_generations: { id: string }[] } }>(
           `/api/sessions/${sessionId}`
         );
-        prevGenCountRef.current = (snap.session.session_generations ?? []).length;
+        const prevGens = snap.session.session_generations ?? [];
+        prevMaxStyleGroupRef.current = prevGens.reduce((max: number, g: any) => Math.max(max, g.style_group ?? 0), 0);
       } catch {
-        prevGenCountRef.current = 0;
+        prevMaxStyleGroupRef.current = 0;
       }
 
       const angleCount = angles?.length ?? 5;
@@ -209,14 +211,13 @@ export function useGenerate() {
         void pollUntilDone(sessionId, controller.signal);
       };
 
-      ensurePolling();
-
       await apiSSE(
         '/api/generate',
         { session_id: sessionId, styles, angles, custom_instruction: customInstruction },
         {
           onEvent: (event) => {
             if (controller.signal.aborted) return;
+            ensurePolling();
 
             if (event.type === 'generation_completed') {
               if (event.photo_url) {
