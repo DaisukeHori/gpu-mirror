@@ -83,6 +83,7 @@ export default function GeneratingScreen() {
     customerPhotoUrl: string;
     styles: string;
     styleLabels: string;
+    customInstruction?: string;
   }>();
 
   let styles: { simulation_mode: string; reference_type: string; [key: string]: unknown }[] = [];
@@ -109,7 +110,7 @@ export default function GeneratingScreen() {
 
   useEffect(() => {
     if (params.sessionId && styles.length > 0) {
-      startGeneration(params.sessionId, styles);
+      startGeneration(params.sessionId, styles, undefined, params.customInstruction);
     }
     return () => { reset(); };
   }, []);

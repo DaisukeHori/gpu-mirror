@@ -132,23 +132,16 @@ export default function ResultScreen() {
         reference_source_url: match.reference_source_url,
         style_label: (match.style_label ?? 'Pinterest') + ' (refined)',
       };
-      await new Promise<void>((resolve, reject) => {
-        apiSSE(
-          '/api/generate',
-          { session_id: sessionId, styles: [style], custom_instruction: instruction },
-          {
-            onEvent: () => {},
-            onError: (err) => reject(err),
-            onComplete: () => resolve(),
-          },
-        );
+      router.replace({
+        pathname: '/(main)/generating',
+        params: {
+          sessionId: sessionId,
+          customerPhotoUrl: customerPhotoUrl ?? '',
+          styles: JSON.stringify([style]),
+          styleLabels: JSON.stringify([style.style_label]),
+          customInstruction: instruction,
+        },
       });
-      await fetchSession();
-      const updatedGens = generations.filter((g) => g.status === 'completed' && g.photo_url);
-      const latestGlamour = updatedGens
-        .filter((g) => g.angle === 'glamour')
-        .sort((a, b) => b.style_group - a.style_group)[0];
-      if (latestGlamour) setViewerGen(latestGlamour);
     } catch (err) {
       Alert.alert('再生成に失敗しました', err instanceof Error ? err.message : 'もう一度お試しください。');
     } finally {

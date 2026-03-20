@@ -177,7 +177,7 @@ export function useGenerate() {
   }, [syncFromDB]);
 
   const startGeneration = useCallback(
-    async (sessionId: string, styles: StyleInput[], angles?: string[]) => {
+    async (sessionId: string, styles: StyleInput[], angles?: string[], customInstruction?: string) => {
       abortRef.current?.abort();
       const controller = new AbortController();
       abortRef.current = controller;
@@ -202,7 +202,7 @@ export function useGenerate() {
 
       await apiSSE(
         '/api/generate',
-        { session_id: sessionId, styles, angles },
+        { session_id: sessionId, styles, angles, custom_instruction: customInstruction },
         {
           onEvent: (event) => {
             if (controller.signal.aborted) return;
