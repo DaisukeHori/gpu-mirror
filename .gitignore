@@ -56,3 +56,12 @@ supabase/.temp/
 
 # Misc
 *.tsbuildinfo
+
+tmp-*
+Pinterest/
+tmp-zxing-check/
+apps/mobile/dist-web-check*/
+tmp-*
+Pinterest/
+tmp-zxing-check/
+apps/mobile/dist-web-check*/

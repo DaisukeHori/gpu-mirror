@@ -138,7 +138,7 @@ export function StyleTray({
               style={{ color: '#fff', fontSize: 15, fontWeight: '600', letterSpacing: 0.3 }}
               numberOfLines={1}
             >
-              {styles.length}つで生成
+              生成へ進む
             </Text>
           </Pressable>
         </View>

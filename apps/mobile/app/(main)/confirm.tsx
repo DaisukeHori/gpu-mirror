@@ -63,9 +63,36 @@ export default function ConfirmScreen() {
         nextStyles = [];
       }
     }
-    setStylesWithColor(nextStyles.map((style) => ({ ...style })));
-    setHasHydratedStyles(true);
-    setHasPreparedLocalThumbnails(false);
+    if (nextStyles.length > 0 && params.sessionId) {
+      apiGet<{ session: { session_generations: { reference_photo_path: string; angle: string; status: string }[] } }>(
+        `/api/sessions/${params.sessionId}`
+      ).then((res) => {
+        const completed = new Set(
+          (res.session.session_generations ?? [])
+            .filter((g) => g.status === 'completed' && g.reference_photo_path)
+            .map((g) => g.reference_photo_path)
+        );
+        const ungenerated = nextStyles.filter((s) => !s.storagePath || !completed.has(s.storagePath));
+        if (ungenerated.length === 0) {
+          router.replace({
+            pathname: '/(main)/result',
+            params: { sessionId: params.sessionId! },
+          });
+          return;
+        }
+        setStylesWithColor(ungenerated.map((style) => ({ ...style })));
+        setHasHydratedStyles(true);
+        setHasPreparedLocalThumbnails(false);
+      }).catch(() => {
+        setStylesWithColor(nextStyles.map((style) => ({ ...style })));
+        setHasHydratedStyles(true);
+        setHasPreparedLocalThumbnails(false);
+      });
+    } else {
+      setStylesWithColor(nextStyles.map((style) => ({ ...style })));
+      setHasHydratedStyles(true);
+      setHasPreparedLocalThumbnails(false);
+    }
   }, [params.sessionId, params.styles]);
 
   useEffect(() => {
@@ -382,7 +409,7 @@ export default function ConfirmScreen() {
         }}
       >
         <HapticButton
-          title={`一括生成する — ${totalImages}枚`}
+          title={`新しいスタイルを生成 — ${totalImages}枚`}
           onPress={handleGenerate}
           disabled={stylesWithColor.length === 0}
         />
