@@ -73,23 +73,19 @@ export const buildRefineStep2Prompt = (params: {
   customInstruction: string;
   angle: string;
   angleInstruction: string;
-  prevAngleLabels: string[];
 }): string => {
-  const prevImageList = params.prevAngleLabels.map((label, i) => `Image ${i + 3}: Previous ${label} angle`).join('\n');
   return `You are generating a specific angle view that must be consistent with an already-confirmed front view.
 
-Image 1 is the customer's original photo.
-Image 2 is the CONFIRMED new front-facing hairstyle — this is the definitive reference for hair color, length, volume, and style.
-${prevImageList}
+Image 1 is the CONFIRMED new front-facing hairstyle — this is the definitive reference for hair color, length, volume, and style.
 
 The customer requested: "${params.customInstruction}"
 
 Generate a ${params.angleInstruction}
 
 CRITICAL RULES:
-- The hairstyle MUST match Image 2 (the confirmed front view) exactly in terms of color, length, texture, and overall style.
+- The hairstyle MUST match Image 1 (the confirmed front view) exactly in terms of color, length, texture, and overall style.
 - Hair flow, volume, and layering must be physically consistent with how the front view would look from this angle.
-- Keep the person's face, identity, skin tone EXACTLY the same as Image 1.
+- Keep the person's face and identity the same.
 - The result must look like a natural photograph taken in a beauty salon.
 - Preserve realistic lighting consistent with the angle.`;
 };

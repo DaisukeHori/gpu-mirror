@@ -307,15 +307,7 @@ export async function POST(request: NextRequest) {
             let additionalImages: Buffer[] | undefined;
 
             if (prevGenImages && step1FrontImage && custom_instruction) {
-              // Step 2: Use confirmed front + prev gen images
-              const orderedAngles = ['front', 'three_quarter', 'side', 'back', 'glamour'];
-              const prevAngleLabels = orderedAngles.map((a) => ANGLE_LABELS[a as keyof typeof ANGLE_LABELS] ?? a);
-              const prevImgs: Buffer[] = [];
-              for (const a of orderedAngles) {
-                const buf = prevGenImages.get(a);
-                if (buf) prevImgs.push(buf);
-              }
-
+              // Step 2: Only confirmed front image + user instruction
               const angleInst = (() => {
                 switch (task.angle) {
                   case 'three_quarter': return 'photo from a three-quarter angle, face slightly turned to the side.';
@@ -330,10 +322,9 @@ export async function POST(request: NextRequest) {
                 customInstruction: custom_instruction,
                 angle: task.angle,
                 angleInstruction: angleInst,
-                prevAngleLabels,
               });
 
-              additionalImages = [step1FrontImage, ...prevImgs];
+              additionalImages = undefined;
             } else {
               const cached = styleDataCache.get(task.styleIndex)!;
               prompt = buildPrompt({
@@ -346,11 +337,11 @@ export async function POST(request: NextRequest) {
             }
 
             const cached = styleDataCache.get(task.styleIndex)!;
+            const isRefineStep2 = !!(prevGenImages && step1FrontImage && custom_instruction);
             const result = await withTimeout(
               provider.generateSingle({
-                customerPhoto: customerPhotoBuffer,
-                referencePhoto: (prevGenImages && step1FrontImage) ? undefined : cached.referencePhotoBuffer,
-                additionalImages,
+                customerPhoto: isRefineStep2 ? step1FrontImage! : customerPhotoBuffer,
+                referencePhoto: isRefineStep2 ? undefined : cached.referencePhotoBuffer,
                 prompt,
               }),
               GENERATION_TIMEOUT_MS,
