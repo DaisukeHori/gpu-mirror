@@ -32,7 +32,7 @@ interface StyleInput {
   style_label?: string;
 }
 
-const POLL_INTERVAL_MS = 3000;
+const POLL_INTERVAL_MS = 500;
 const MAX_POLL_ATTEMPTS = 60;
 
 export function useGenerate() {
@@ -42,6 +42,7 @@ export function useGenerate() {
   const [isComplete, setIsComplete] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
   const sessionIdRef = useRef<string | null>(null);
+  const prevGenCountRef = useRef<number>(0);
 
   const upsertResult = useCallback((result: GenerationResult) => {
     setResults((prev) => {
@@ -151,7 +152,8 @@ export function useGenerate() {
       }
       setProgress(groupMap);
 
-      const allDone = gens.every((g) => g.status === 'completed' || g.status === 'failed');
+      const hasNewGens = gens.length > prevGenCountRef.current;
+      const allDone = hasNewGens && gens.every((g) => g.status === 'completed' || g.status === 'failed');
       return allDone;
     } catch {
       return false;
@@ -187,6 +189,15 @@ export function useGenerate() {
       setIsComplete(false);
       setResults([]);
       setProgress(new Map());
+
+      try {
+        const snap = await apiGet<{ session: { session_generations: { id: string }[] } }>(
+          `/api/sessions/${sessionId}`
+        );
+        prevGenCountRef.current = (snap.session.session_generations ?? []).length;
+      } catch {
+        prevGenCountRef.current = 0;
+      }
 
       const angleCount = angles?.length ?? 5;
       let sseReceivedAllCompleted = false;
