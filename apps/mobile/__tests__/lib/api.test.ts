@@ -16,14 +16,18 @@ const originalFetch = global.fetch;
 
 describe('api.ts', () => {
   let mockFetch: ReturnType<typeof vi.fn>;
+  let appendSpy: ReturnType<typeof vi.spyOn> | null = null;
 
   beforeEach(() => {
     mockFetch = vi.fn();
     global.fetch = mockFetch as unknown as typeof fetch;
+    appendSpy = vi.spyOn(FormData.prototype, 'append');
   });
 
   afterEach(() => {
     global.fetch = originalFetch;
+    appendSpy?.mockRestore();
+    appendSpy = null;
   });
 
   describe('apiGet', () => {
@@ -139,6 +143,28 @@ describe('api.ts', () => {
       expect(opts.method).toBe('POST');
       expect(opts.body).toBeInstanceOf(FormData);
       expect(result.storage_path).toBe('sess-1/photo.jpg');
+    });
+
+    it('uses a native multipart file payload shape', async () => {
+      mockFetch.mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({ storage_path: 'sess-1/photo.jpg', url: 'https://signed-url' }),
+      });
+
+      await uploadFile(
+        '/api/upload',
+        { uri: 'file://photo.jpg', name: 'photo.jpg', type: 'image/jpeg', file: undefined },
+        'sess-1',
+      );
+
+      const appendCalls = appendSpy?.mock.calls as Array<[string, unknown, ...unknown[]]> | undefined;
+      const fileAppendCall = appendCalls?.find((call) => call[0] === 'file');
+      expect(fileAppendCall).toBeDefined();
+      expect(fileAppendCall?.[1]).toEqual({
+        uri: 'file://photo.jpg',
+        name: 'photo.jpg',
+        type: 'image/jpeg',
+      });
     });
   });
 

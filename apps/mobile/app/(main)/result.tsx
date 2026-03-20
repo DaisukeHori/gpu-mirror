@@ -1,35 +1,47 @@
-import { useState, useEffect, useCallback } from 'react';
-import { View, Text, Pressable, Alert, Image as RNImage } from 'react-native';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { View, Text, Pressable, Alert, Image as RNImage, useWindowDimensions, ScrollView, ActivityIndicator, FlatList } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { apiGet, apiPatch, apiPost } from '../../lib/api';
 import { useCloseSession } from '../../hooks/useCloseSession';
 import type { Generation } from '../../lib/types';
 import { ANGLES, ANGLE_LABELS } from '../../lib/constants';
 import { ExitButton } from '../../components/common/ExitButton';
-import { CompareGrid } from '../../components/result/CompareGrid';
-import { DetailView } from '../../components/result/DetailView';
-import { FullscreenViewer } from '../../components/result/FullscreenViewer';
 import { ShareSheet } from '../../components/result/ShareSheet';
 import { impactLight } from '../../lib/haptics';
-
-type ViewMode = 'compare' | 'detail';
+import { getCachedGenerations, updateCachedFavorite, downloadAndCache } from '../../lib/generation-cache';
+import { useAppTheme } from '../../lib/theme-provider';
 
 export default function ResultScreen() {
   const { sessionId } = useLocalSearchParams<{ sessionId: string }>();
+  const theme = useAppTheme();
+  const { width: screenWidth } = useWindowDimensions();
   const [generations, setGenerations] = useState<Generation[]>([]);
-  const [viewMode, setViewMode] = useState<ViewMode>('compare');
-  const [selectedAngle, setSelectedAngle] = useState('front');
-  const [selectedStyleGroup, setSelectedStyleGroup] = useState(1);
-  const [fullscreenImage, setFullscreenImage] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
   const [customerPhotoUrl, setCustomerPhotoUrl] = useState<string | null>(null);
   const [customerPhotoPath, setCustomerPhotoPath] = useState<string | null>(null);
   const [shareVisible, setShareVisible] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [retryingIds, setRetryingIds] = useState<Set<string>>(new Set());
+  const [viewerGen, setViewerGen] = useState<Generation | null>(null);
   const closeSession = useCloseSession(sessionId);
 
   const fetchSession = useCallback(async () => {
     if (!sessionId) return;
+
+    const cached = getCachedGenerations(sessionId);
+    if (cached.length > 0) {
+      const asGens: Generation[] = cached.map((c) => ({
+        id: c.id,
+        style_group: c.style_group,
+        angle: c.angle,
+        photo_url: c.localUri,
+        status: c.status,
+        style_label: c.style_label,
+        is_favorite: c.is_favorite,
+      } as Generation));
+      setGenerations(asGens);
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     try {
       const res = await apiGet<{
@@ -42,17 +54,21 @@ export default function ResultScreen() {
       setCustomerPhotoUrl(res.session.customer_photo_url ?? null);
       setCustomerPhotoPath(res.session.customer_photo_path ?? null);
       const gens = res.session.session_generations ?? [];
-      console.log('[Result] fetched generations', gens.length, gens.map(g => ({
-        id: g.id?.slice(0, 8),
-        status: g.status,
-        angle: g.angle,
-        style_group: g.style_group,
-        has_photo_url: !!g.photo_url,
-        photo_url_prefix: g.photo_url?.slice(0, 50),
-      })));
       setGenerations(gens);
       gens.forEach((g) => {
-        if (g.photo_url) RNImage.prefetch(g.photo_url);
+        if (g.photo_url && g.status === 'completed') {
+          downloadAndCache(sessionId, g.id, g.photo_url, {
+            style_group: g.style_group,
+            angle: g.angle,
+            style_label: g.style_label ?? undefined,
+          }).then((localUri) => {
+            if (localUri !== g.photo_url) {
+              setGenerations((prev) =>
+                prev.map((p) => p.id === g.id ? { ...p, photo_url: localUri } : p),
+              );
+            }
+          });
+        }
       });
     } catch (err) {
       console.error('Failed to fetch session:', err);
@@ -61,213 +77,284 @@ export default function ResultScreen() {
     }
   }, [sessionId]);
 
-  useEffect(() => {
-    fetchSession();
-  }, [fetchSession]);
+  useEffect(() => { fetchSession(); }, [fetchSession]);
 
-  const completedGenerations = generations.filter((g) => g.status === 'completed');
-  const failedGenerations = generations.filter((g) => g.status === 'failed');
+  const completedGenerations = generations.filter((g) => g.status === 'completed' && g.photo_url);
+  const glamourGens = completedGenerations.filter((g) => g.angle === 'glamour');
   const styleGroups = [...new Set(completedGenerations.map((g) => g.style_group))].sort();
-  const angles = [...ANGLES] as string[];
-  const angleLabels = ANGLE_LABELS as Record<string, string>;
 
   const toggleFavorite = async (genId: string, current: boolean) => {
     impactLight();
     const newValue = !current;
-    setGenerations((prev) =>
-      prev.map((g) => (g.id === genId ? { ...g, is_favorite: newValue } : g)),
-    );
+    setGenerations((prev) => prev.map((g) => (g.id === genId ? { ...g, is_favorite: newValue } : g)));
+    if (sessionId) updateCachedFavorite(sessionId, genId, newValue);
     try {
-      await apiPatch(`/api/sessions/${sessionId}/generations/${genId}`, {
-        is_favorite: newValue,
-      });
+      await apiPatch(`/api/sessions/${sessionId}/generations/${genId}`, { is_favorite: newValue });
     } catch {
-      setGenerations((prev) =>
-        prev.map((g) => (g.id === genId ? { ...g, is_favorite: current } : g)),
-      );
+      setGenerations((prev) => prev.map((g) => (g.id === genId ? { ...g, is_favorite: current } : g)));
     }
   };
-
-  const handleRetryGeneration = async (genId: string) => {
-    if (!sessionId) return;
-    setRetryingIds((prev) => new Set(prev).add(genId));
-    setGenerations((prev) =>
-      prev.map((g) => (g.id === genId ? { ...g, status: 'generating' } : g)),
-    );
-
-    try {
-      const data = await apiPost<{
-        generation_id: string;
-        status: 'completed';
-        photo_url?: string;
-        ai_latency_ms?: number;
-      }>(`/api/sessions/${sessionId}/generations/${genId}/retry`);
-
-      setGenerations((prev) =>
-        prev.map((g) =>
-          g.id === genId
-            ? { ...g, status: data.status, photo_url: data.photo_url ?? null }
-            : g,
-        ),
-      );
-    } catch {
-      setGenerations((prev) =>
-        prev.map((g) => (g.id === genId ? { ...g, status: 'failed' } : g)),
-      );
-      Alert.alert('リトライに失敗しました', 'もう一度お試しください。');
-    } finally {
-      setRetryingIds((prev) => {
-        const next = new Set(prev);
-        next.delete(genId);
-        return next;
-      });
-    }
-  };
-
-  const handleExit = closeSession;
 
   const handleAddStyles = () => {
     if (!sessionId) return;
     router.push({
       pathname: '/(main)/explore',
-      params: {
-        sessionId,
-        customerPhotoPath: customerPhotoPath ?? 'existing',
-        customerPhotoUrl: customerPhotoUrl ?? '',
-      },
+      params: { sessionId, customerPhotoPath: customerPhotoPath ?? 'existing', customerPhotoUrl: customerPhotoUrl ?? '' },
     });
   };
 
-  const handleRetake = () => {
-    router.push('/(main)/camera');
-  };
-
-
+  const TILE_GAP = 8;
+  const TILE_PAD = 16;
+  const cols = glamourGens.length <= 2 ? 2 : glamourGens.length <= 4 ? 2 : 3;
+  const tileWidth = (screenWidth - TILE_PAD * 2 - TILE_GAP * (cols - 1)) / cols;
+  const tileHeight = tileWidth * 1.3;
 
   if (loading) {
     return (
-      <View className="flex-1 bg-bg items-center justify-center">
-        <Text className="text-text-muted text-sm tracking-wide">読み込み中...</Text>
+      <View style={{ flex: 1, backgroundColor: theme.colors.bg, alignItems: 'center', justifyContent: 'center' }}>
+        <ActivityIndicator size="large" color="#B8956A" />
+      </View>
+    );
+  }
+
+  if (viewerGen) {
+    const sameStyle = completedGenerations
+      .filter((g) => g.style_group === viewerGen.style_group)
+      .sort((a, b) => ANGLES.indexOf(a.angle as any) - ANGLES.indexOf(b.angle as any));
+
+    const initialIndex = sameStyle.findIndex((g) => g.id === viewerGen.id);
+
+    return (
+      <View style={{ flex: 1, backgroundColor: '#000' }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingTop: 60, paddingBottom: 12 }}>
+          <Pressable style={{ paddingVertical: 8, paddingRight: 16 }} onPress={() => setViewerGen(null)}>
+            <Text style={{ color: '#E8E0D8', fontSize: 14 }}>戻る</Text>
+          </Pressable>
+          <Text style={{ color: 'rgba(151,145,137,0.72)', fontSize: 13 }}>
+            {viewerGen.style_label ?? `Style ${viewerGen.style_group}`}
+          </Text>
+          <Pressable
+            hitSlop={8}
+            onPress={() => toggleFavorite(viewerGen.id, viewerGen.is_favorite)}
+          >
+            <Text style={{ fontSize: 20, color: viewerGen.is_favorite ? '#EF5350' : 'rgba(151,145,137,0.48)' }}>
+              {viewerGen.is_favorite ? '\u2665' : '\u2661'}
+            </Text>
+          </Pressable>
+        </View>
+
+        <InfiniteSwiper
+          items={sameStyle}
+          initialIndex={initialIndex >= 0 ? initialIndex : 0}
+          screenWidth={screenWidth}
+          onIndexChange={(idx) => setViewerGen(sameStyle[idx])}
+        />
       </View>
     );
   }
 
   return (
-    <View className="flex-1 bg-bg">
-      {/* Header with segment control */}
-      <View className="flex-row items-center justify-between px-5 pt-16 pb-3">
-        <Pressable className="py-2 pr-4" onPress={() => router.replace('/(main)')}>
-          <Text className="text-text-muted text-sm tracking-wide">ホーム</Text>
+    <View style={{ flex: 1, backgroundColor: theme.colors.bg }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingTop: 60, paddingBottom: 12 }}>
+        <Pressable style={{ paddingVertical: 8, paddingRight: 16 }} onPress={() => router.replace('/(main)')}>
+          <Text style={{ color: theme.colors.muted, fontSize: 14 }}>ホーム</Text>
         </Pressable>
-        <View className="flex-row bg-bg-surface rounded-pill p-1 border border-border">
-          {(['compare', 'detail'] as const).map((mode) => (
-            <Pressable
-              key={mode}
-              className={`px-5 py-2 rounded-pill ${viewMode === mode ? 'bg-accent' : ''}`}
-              onPress={() => setViewMode(mode)}
-            >
-              <Text
-                className={`text-xs tracking-wide ${viewMode === mode ? 'text-text-on-accent font-semibold' : 'text-text-muted'}`}
-              >
-                {mode === 'compare' ? '比較' : '個別'}
-              </Text>
-            </Pressable>
-          ))}
-        </View>
-        <ExitButton onConfirm={handleExit} />
+        <Text style={{ color: theme.colors.primary, fontSize: 16, fontWeight: '500' }}>結果</Text>
+        <ExitButton onConfirm={closeSession} />
       </View>
 
-      {/* Failed generations banner */}
-      {failedGenerations.length > 0 && (
-        <View className="mx-5 mb-3 bg-bg-surface rounded-card p-4 border border-border">
-          <Text className="text-destructive text-xs font-medium mb-2 tracking-wide">
-            {failedGenerations.length}件の生成に失敗しました
-          </Text>
-          <View className="flex-row flex-wrap gap-2">
-            {failedGenerations.map((g) => (
-              <Pressable
-                key={g.id}
-                className="px-3 py-1.5 rounded-pill bg-bg-elevated border border-border"
-                onPress={() => handleRetryGeneration(g.id)}
-                disabled={retryingIds.has(g.id)}
-              >
-                <Text className="text-text-muted text-[11px] tracking-wide">
-                  {retryingIds.has(g.id)
-                    ? `${g.style_label ?? `S${g.style_group}`} ${angleLabels[g.angle]} ...`
-                    : `${g.style_label ?? `S${g.style_group}`} ${angleLabels[g.angle]} リトライ`}
-                </Text>
-              </Pressable>
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{ paddingHorizontal: TILE_PAD, paddingBottom: 100 }}
+        showsVerticalScrollIndicator={false}
+      >
+        {glamourGens.length > 0 ? (
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: TILE_GAP }}>
+            {glamourGens.map((gen) => (
+              <GlamourTile
+                key={gen.id}
+                gen={gen}
+                width={tileWidth}
+                height={tileHeight}
+                theme={theme}
+                onPress={() => setViewerGen(gen)}
+                onToggleFavorite={toggleFavorite}
+              />
             ))}
           </View>
-        </View>
-      )}
+        ) : (
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: TILE_GAP }}>
+            {styleGroups.map((group) => {
+              const gen = completedGenerations.find((g) => g.style_group === group);
+              if (!gen) return null;
+              return (
+                <GlamourTile
+                  key={gen.id}
+                  gen={gen}
+                  width={tileWidth}
+                  height={tileHeight}
+                  theme={theme}
+                  onPress={() => setViewerGen(gen)}
+                  onToggleFavorite={toggleFavorite}
+                />
+              );
+            })}
+          </View>
+        )}
+      </ScrollView>
 
-      {/* View content */}
-      {viewMode === 'compare' ? (
-        <CompareGrid
-          generations={completedGenerations}
-          styleGroups={styleGroups}
-          selectedAngle={selectedAngle}
-          onSelectAngle={setSelectedAngle}
-          angles={angles}
-          angleLabels={angleLabels}
-          onImagePress={setFullscreenImage}
-          onToggleFavorite={toggleFavorite}
-        />
-      ) : (
-        <DetailView
-          generations={completedGenerations}
-          styleGroups={styleGroups}
-          selectedStyleGroup={selectedStyleGroup}
-          onSelectStyleGroup={setSelectedStyleGroup}
-          angles={angles}
-          angleLabels={angleLabels}
-          onImagePress={setFullscreenImage}
-          onToggleFavorite={toggleFavorite}
-          onShare={() => setShareVisible(true)}
-        />
-      )}
-
-      {/* Bottom actions */}
-      <View className="border-t border-border px-5 pb-8 pt-4 bg-bg">
-        <View className="flex-row items-center gap-3">
+      <View style={{ borderTopWidth: 0.5, borderTopColor: 'rgba(151,145,137,0.12)', paddingHorizontal: 20, paddingBottom: 32, paddingTop: 14, backgroundColor: theme.colors.bg }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
           <Pressable
-            className="px-5 py-3 rounded-pill bg-bg-surface border border-border"
+            style={{ paddingHorizontal: 18, paddingVertical: 10, borderRadius: 999, backgroundColor: 'rgba(151,145,137,0.06)', borderWidth: 0.5, borderColor: 'rgba(151,145,137,0.12)' }}
             onPress={handleAddStyles}
           >
-            <Text className="text-text-secondary text-xs tracking-wide">スタイル追加</Text>
+            <Text style={{ color: theme.colors.secondary, fontSize: 13 }}>スタイル追加</Text>
           </Pressable>
           <Pressable
-            className="px-5 py-3 rounded-pill bg-bg-surface border border-border"
-            onPress={handleRetake}
-          >
-            <Text className="text-text-secondary text-xs tracking-wide">撮り直し</Text>
-          </Pressable>
-          <Pressable
-            className="px-5 py-3 rounded-pill bg-bg-surface border border-border"
+            style={{ paddingHorizontal: 18, paddingVertical: 10, borderRadius: 999, backgroundColor: 'rgba(151,145,137,0.06)', borderWidth: 0.5, borderColor: 'rgba(151,145,137,0.12)' }}
             onPress={() => setShareVisible(true)}
           >
-            <Text className="text-text-secondary text-xs tracking-wide">共有</Text>
+            <Text style={{ color: theme.colors.secondary, fontSize: 13 }}>共有</Text>
           </Pressable>
-
         </View>
       </View>
 
-      {/* Fullscreen viewer */}
-      {fullscreenImage && (
-        <FullscreenViewer
-          imageUrl={fullscreenImage}
-          beforeImageUrl={customerPhotoUrl}
-          onClose={() => setFullscreenImage(null)}
-        />
-      )}
-
-      {/* Share sheet */}
       <ShareSheet
         visible={shareVisible}
         onClose={() => setShareVisible(false)}
         generations={completedGenerations}
       />
     </View>
+  );
+}
+
+function InfiniteSwiper({
+  items,
+  initialIndex,
+  screenWidth,
+  onIndexChange,
+}: {
+  items: Generation[];
+  initialIndex: number;
+  screenWidth: number;
+  onIndexChange: (index: number) => void;
+}) {
+  const COPIES = 100;
+  const totalLen = items.length * COPIES;
+  const midStart = Math.floor(COPIES / 2) * items.length + initialIndex;
+  const flatListRef = useRef<FlatList>(null);
+  const lastReportedIndex = useRef(initialIndex);
+
+  const loopedData = useMemo(() => {
+    const arr: (Generation & { _loopKey: string })[] = [];
+    for (let c = 0; c < COPIES; c++) {
+      for (let i = 0; i < items.length; i++) {
+        arr.push({ ...items[i], _loopKey: `${c}_${i}` });
+      }
+    }
+    return arr;
+  }, [items]);
+
+  const handleScrollEnd = useCallback((e: any) => {
+    const idx = Math.round(e.nativeEvent.contentOffset.x / screenWidth);
+    const realIdx = idx % items.length;
+    if (realIdx !== lastReportedIndex.current) {
+      lastReportedIndex.current = realIdx;
+      onIndexChange(realIdx);
+    }
+  }, [screenWidth, items.length, onIndexChange]);
+
+  return (
+    <FlatList
+      ref={flatListRef}
+      data={loopedData}
+      horizontal
+      pagingEnabled
+      initialScrollIndex={midStart}
+      getItemLayout={(_, index) => ({ length: screenWidth, offset: screenWidth * index, index })}
+      showsHorizontalScrollIndicator={false}
+      keyExtractor={(item) => item._loopKey}
+      onMomentumScrollEnd={handleScrollEnd}
+      renderItem={({ item }) => <ViewerSlide item={item} screenWidth={screenWidth} />}
+    />
+  );
+}
+
+function ViewerSlide({ item, screenWidth }: { item: Generation; screenWidth: number }) {
+  const [loaded, setLoaded] = useState(false);
+  const imgHeight = screenWidth * 1.3;
+
+  return (
+    <View style={{ width: screenWidth, height: imgHeight + 40, justifyContent: 'center', alignItems: 'center' }}>
+      <View style={{ width: screenWidth, height: imgHeight }}>
+        <RNImage
+          source={{ uri: item.photo_url! }}
+          style={{ width: screenWidth, height: imgHeight }}
+          resizeMode="contain"
+          onLoad={() => setLoaded(true)}
+        />
+        {!loaded && (
+          <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center' }}>
+            <ActivityIndicator size="large" color="#B8956A" />
+          </View>
+        )}
+      </View>
+      <Text style={{ color: 'rgba(151,145,137,0.72)', fontSize: 14, marginTop: 12, letterSpacing: 0.3 }}>
+        {ANGLE_LABELS[item.angle as keyof typeof ANGLE_LABELS] ?? item.angle}
+      </Text>
+    </View>
+  );
+}
+
+function GlamourTile({
+  gen,
+  width,
+  height,
+  theme,
+  onPress,
+  onToggleFavorite,
+}: {
+  gen: Generation;
+  width: number;
+  height: number;
+  theme: ReturnType<typeof useAppTheme>;
+  onPress: () => void;
+  onToggleFavorite: (id: string, current: boolean) => void;
+}) {
+  const [loaded, setLoaded] = useState(false);
+
+  return (
+    <Pressable style={{ width }} onPress={onPress}>
+      <View style={{ width, height, borderRadius: 10, overflow: 'hidden', backgroundColor: 'rgba(151,145,137,0.06)' }}>
+        <RNImage
+          source={{ uri: gen.photo_url! }}
+          style={{ width, height }}
+          resizeMode="cover"
+          onLoad={() => setLoaded(true)}
+        />
+        {!loaded && (
+          <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center' }}>
+            <ActivityIndicator size="small" color="#B8956A" />
+          </View>
+        )}
+      </View>
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 6, paddingHorizontal: 2 }}>
+        <Text style={{ color: theme.colors.secondary, fontSize: 12, flex: 1 }} numberOfLines={1}>
+          {gen.style_label ?? `Style ${gen.style_group}`}
+        </Text>
+        <Pressable
+          hitSlop={8}
+          onPress={() => {
+            impactLight();
+            onToggleFavorite(gen.id, gen.is_favorite);
+          }}
+        >
+          <Text style={{ fontSize: 16, color: gen.is_favorite ? '#EF5350' : theme.colors.muted }}>
+            {gen.is_favorite ? '\u2665' : '\u2661'}
+          </Text>
+        </Pressable>
+      </View>
+    </Pressable>
   );
 }

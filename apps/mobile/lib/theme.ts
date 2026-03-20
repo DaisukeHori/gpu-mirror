@@ -6,7 +6,7 @@ import {
   LIGHT_THEME,
   RADIUS,
   type DesignTheme,
-} from '@revol-mirror/shared';
+} from './design-tokens';
 import { Platform } from 'react-native';
 
 export type ThemeMode = 'dark' | 'light';

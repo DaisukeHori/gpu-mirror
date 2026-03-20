@@ -1,0 +1,12 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "installCommand": "npm install",
+  "buildCommand": "npx expo export --clear --platform web --output-dir dist-web && node ./scripts/patch-web-css.mjs",
+  "outputDirectory": "dist-web",
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/"
+    }
+  ]
+}

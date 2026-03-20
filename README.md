@@ -531,7 +531,8 @@ Rules: No gradients. No emoji in UI. Monotone + 1 accent color. Borders 0.5px. A
 - Expo CLI (`npx expo`)
 - Supabase project (with tables created via DDL)
 - Google Gemini API key
-- Azure AD tenant (for SAML SSO)
+- Microsoft Entra ID / Azure AD SAML metadata URL
+- Employee email domain or Supabase SSO provider ID
 
 ### Installation
 
@@ -563,9 +564,37 @@ GENERATION_TIMEOUT_MS=60000
 EXPO_PUBLIC_SUPABASE_URL=https://xxxxx.supabase.co
 EXPO_PUBLIC_SUPABASE_ANON_KEY=eyJhbGci...
 EXPO_PUBLIC_API_BASE_URL=https://revol-mirror-api.vercel.app
-EXPO_PUBLIC_AZURE_AD_TENANT_ID=xxxxx
-EXPO_PUBLIC_AZURE_AD_CLIENT_ID=xxxxx
+EXPO_PUBLIC_SSO_DOMAIN=company.com
+# Optional: bypass domain lookup and target a fixed provider directly
+# EXPO_PUBLIC_SSO_PROVIDER_ID=00000000-0000-0000-0000-000000000000
 ```
+
+### SAML SSO Setup
+
+Register the Microsoft Entra / Azure AD SAML connection in Supabase Auth before testing employee login.
+
+```bash
+# Show the Supabase service provider values you need in Entra
+supabase sso info --project-ref <project-ref>
+
+# Register the Entra metadata URL and the employee email domain
+supabase sso add \
+  --project-ref <project-ref> \
+  --type saml \
+  --metadata-url 'https://login.microsoftonline.com/.../federationmetadata/2007-06/federationmetadata.xml' \
+  --domains company.com
+
+# Confirm the provider was created
+supabase sso list --project-ref <project-ref>
+```
+
+Add the redirect URLs used by this app in Supabase Auth URL Configuration:
+
+- `revol-mirror://login-callback`
+- `https://revol-mirror-admin.vercel.app/login`
+- your local Expo Web login URL, for example `http://localhost:8081/login`
+
+The app resolves the SSO connection by `EXPO_PUBLIC_SSO_DOMAIN` by default. If you prefer to pin one provider explicitly, set `EXPO_PUBLIC_SSO_PROVIDER_ID` instead.
 
 ### Development
 

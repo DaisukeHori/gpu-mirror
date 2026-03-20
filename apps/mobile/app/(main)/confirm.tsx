@@ -225,7 +225,7 @@ export default function ConfirmScreen() {
         <View style={{ padding: 12 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
             <Text
-              style={{ color: theme.colors.text, fontSize: 13, fontWeight: '600', flex: 1 }}
+              style={{ color: theme.colors.primary, fontSize: 13, fontWeight: '600', flex: 1 }}
               numberOfLines={1}
             >
               {style.label}
@@ -298,7 +298,7 @@ export default function ConfirmScreen() {
         <Pressable style={{ paddingVertical: 8, paddingRight: 16 }} onPress={() => router.back()}>
           <Text style={{ color: theme.colors.muted, fontSize: 14 }}>戻る</Text>
         </Pressable>
-        <Text style={{ color: theme.colors.text, fontSize: 16, fontWeight: '500' }}>確認</Text>
+        <Text style={{ color: theme.colors.primary, fontSize: 16, fontWeight: '500' }}>確認</Text>
         <ExitButton onConfirm={closeSession} />
       </View>
 

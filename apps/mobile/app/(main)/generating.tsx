@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { View, Text } from 'react-native';
 import Animated, {
   useSharedValue,
@@ -6,6 +6,7 @@ import Animated, {
   withRepeat,
   withTiming,
   withDelay,
+  withSequence,
   Easing,
 } from 'react-native-reanimated';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -13,6 +14,68 @@ import { useGenerate } from '../../hooks/useGenerate';
 import { ExitButton } from '../../components/common/ExitButton';
 import { useCloseSession } from '../../hooks/useCloseSession';
 import { ProgressBoard } from '../../components/generating/ProgressBoard';
+import { getStoredSelectedStyles } from '../../lib/style-selection-store';
+
+function OrbDot({ delay }: { delay: number }) {
+  const translateY = useSharedValue(0);
+  const scale = useSharedValue(1);
+  const opacity = useSharedValue(0.5);
+
+  useEffect(() => {
+    translateY.value = withDelay(
+      delay,
+      withRepeat(
+        withSequence(
+          withTiming(-14, { duration: 500, easing: Easing.out(Easing.quad) }),
+          withTiming(0, { duration: 500, easing: Easing.in(Easing.quad) }),
+        ),
+        -1,
+        false,
+      ),
+    );
+    scale.value = withDelay(
+      delay,
+      withRepeat(
+        withSequence(
+          withTiming(1.4, { duration: 500, easing: Easing.out(Easing.quad) }),
+          withTiming(1, { duration: 500, easing: Easing.in(Easing.quad) }),
+        ),
+        -1,
+        false,
+      ),
+    );
+    opacity.value = withDelay(
+      delay,
+      withRepeat(
+        withSequence(
+          withTiming(1, { duration: 500, easing: Easing.out(Easing.quad) }),
+          withTiming(0.3, { duration: 500, easing: Easing.in(Easing.quad) }),
+        ),
+        -1,
+        false,
+      ),
+    );
+  }, [delay, translateY, scale, opacity]);
+
+  const style = useAnimatedStyle(() => ({
+    transform: [{ translateY: translateY.value }, { scale: scale.value }],
+    opacity: opacity.value,
+  }));
+
+  return (
+    <Animated.View
+      style={[
+        {
+          width: 8,
+          height: 8,
+          borderRadius: 4,
+          backgroundColor: '#B8956A',
+        },
+        style,
+      ]}
+    />
+  );
+}
 
 export default function GeneratingScreen() {
   const params = useLocalSearchParams<{
@@ -26,19 +89,18 @@ export default function GeneratingScreen() {
   let styleLabels: string[] = [];
   try { styles = JSON.parse(params.styles ?? '[]'); } catch { /* noop */ }
   try { styleLabels = JSON.parse(params.styleLabels ?? '[]'); } catch { /* noop */ }
+  const styleThumbnails = useMemo(() => {
+    const stored = getStoredSelectedStyles(params.sessionId);
+    return stored.map((s) => s.thumbnailUrl || s.localThumbnailUri || s.sourceUrl || '');
+  }, [params.sessionId]);
   const closeSession = useCloseSession(params.sessionId);
   const { results, progress, isGenerating, isComplete, startGeneration, reset } = useGenerate();
 
-  const pulseOpacity = useSharedValue(1);
+
   const contentOpacity = useSharedValue(0);
   const doneOpacity = useSharedValue(0);
 
   useEffect(() => {
-    pulseOpacity.value = withRepeat(
-      withTiming(0.4, { duration: 2000, easing: Easing.inOut(Easing.ease) }),
-      -1,
-      true,
-    );
     contentOpacity.value = withDelay(
       200,
       withTiming(1, { duration: 500, easing: Easing.out(Easing.quad) }),
@@ -64,10 +126,6 @@ export default function GeneratingScreen() {
       return () => clearTimeout(timer);
     }
   }, [isComplete, params.sessionId]);
-
-  const pulseStyle = useAnimatedStyle(() => ({
-    opacity: pulseOpacity.value,
-  }));
 
   const contentStyle = useAnimatedStyle(() => ({
     opacity: contentOpacity.value,
@@ -96,12 +154,12 @@ export default function GeneratingScreen() {
       </View>
 
       <Animated.View style={contentStyle} className="flex-1 items-center justify-center px-8">
-        {/* Pulse dot */}
         <View className="mb-10 items-center">
-          <Animated.View
-            style={pulseStyle}
-            className="w-2 h-2 rounded-full bg-accent mb-6"
-          />
+          <View style={{ flexDirection: 'row', gap: 6, marginBottom: 24 }}>
+            <OrbDot delay={0} />
+            <OrbDot delay={150} />
+            <OrbDot delay={300} />
+          </View>
           <Text className="text-text-primary text-xl font-semibold tracking-wide">
             スタイリング中
           </Text>
@@ -113,6 +171,7 @@ export default function GeneratingScreen() {
         <ProgressBoard
           progress={progress}
           styleLabels={styleLabels}
+            styleThumbnails={styleThumbnails}
           onViewCompleted={handleViewCompleted}
         />
 

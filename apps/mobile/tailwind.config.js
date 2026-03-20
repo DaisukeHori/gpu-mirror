@@ -1,7 +1,12 @@
-import type { Config } from 'tailwindcss';
+const path = require('path');
 
-export default {
-  content: ['./app/**/*.{ts,tsx}', './components/**/*.{ts,tsx}', './lib/**/*.{ts,tsx}'],
+/** @type {import('tailwindcss').Config} */
+module.exports = {
+  content: [
+    path.join(__dirname, 'app/**/*.{ts,tsx}'),
+    path.join(__dirname, 'components/**/*.{ts,tsx}'),
+    path.join(__dirname, 'lib/**/*.{ts,tsx}'),
+  ],
   presets: [require('nativewind/preset')],
   theme: {
     extend: {
@@ -28,4 +33,4 @@ export default {
     },
   },
   plugins: [],
-} satisfies Config;
+};

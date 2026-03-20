@@ -1,15 +1,19 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { View, Text, Pressable, Platform } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import type { SelectedStyle } from '../../lib/types';
 import { ExitButton } from '../../components/common/ExitButton';
 import { useCloseSession } from '../../hooks/useCloseSession';
-import { PinterestBrowser } from '../../components/explore/PinterestBrowser';
+import { PinterestBrowser, type PinterestBrowserHandle } from '../../components/explore/PinterestBrowser';
 import { CatalogGrid } from '../../components/explore/CatalogGrid';
 import { ImageUploader } from '../../components/explore/ImageUploader';
 import { ColorPalette } from '../../components/explore/ColorPalette';
 import { StyleTray } from '../../components/explore/StyleTray';
 import { impactLight } from '../../lib/haptics';
+import {
+  getStoredSelectedStyles,
+  setStoredSelectedStyles,
+} from '../../lib/style-selection-store';
 
 export type { SelectedStyle } from '../../lib/types';
 
@@ -31,10 +35,27 @@ export default function ExploreScreen() {
   const closeSession = useCloseSession(sessionId);
   const [activeTab, setActiveTab] = useState<TabKey>(Platform.OS === 'web' ? 'catalog' : 'pinterest');
   const [selectedStyles, setSelectedStyles] = useState<SelectedStyle[]>([]);
+  const [hasHydratedSelection, setHasHydratedSelection] = useState(false);
   const [selectedColor, setSelectedColor] = useState<{ id: string; name: string; hex: string } | null>(null);
+  const pinterestRef = useRef<PinterestBrowserHandle>(null);
+  const [isPinDetail, setIsPinDetail] = useState(false);
+  const [addingPin, setAddingPin] = useState(false);
+
+  useEffect(() => {
+    setSelectedStyles(getStoredSelectedStyles(sessionId));
+    setHasHydratedSelection(true);
+  }, [sessionId]);
+
+  useEffect(() => {
+    if (!hasHydratedSelection) {
+      return;
+    }
+    setStoredSelectedStyles(sessionId, selectedStyles);
+  }, [hasHydratedSelection, sessionId, selectedStyles]);
 
   const addStyle = (style: SelectedStyle) => {
     impactLight();
+    setAddingPin(false);
     setSelectedStyles((prev) => {
       if (prev.find((s) => s.id === style.id)) return prev;
       return [...prev, style];
@@ -47,13 +68,13 @@ export default function ExploreScreen() {
 
   const handleConfirm = () => {
     if (selectedStyles.length === 0) return;
+    setStoredSelectedStyles(sessionId, selectedStyles);
     router.push({
       pathname: '/(main)/confirm',
       params: {
         sessionId: sessionId!,
         customerPhotoPath: customerPhotoPath!,
         customerPhotoUrl: customerPhotoUrl!,
-        styles: JSON.stringify(selectedStyles),
         selectedColorId: selectedColor?.id ?? '',
         selectedColorName: selectedColor?.name ?? '',
       },
@@ -98,7 +119,14 @@ export default function ExploreScreen() {
       {/* Tab content */}
       <View className="flex-1">
         {activeTab === 'pinterest' && (
-          <PinterestBrowser sessionId={sessionId!} onSelectImage={addStyle} />
+          <PinterestBrowser
+            ref={pinterestRef}
+            sessionId={sessionId!}
+            onSelectImage={addStyle}
+            onPinDetailChange={setIsPinDetail}
+            onImportStart={() => setAddingPin(true)}
+            onImportEnd={() => setAddingPin(false)}
+          />
         )}
         {activeTab === 'catalog' && (
           <CatalogGrid onSelectItem={addStyle} />
@@ -131,6 +159,9 @@ export default function ExploreScreen() {
         styles={selectedStyles}
         onRemove={removeStyle}
         onConfirm={handleConfirm}
+        isPinDetail={activeTab === 'pinterest' && isPinDetail}
+        addingPin={addingPin}
+        onAddCurrentPin={() => pinterestRef.current?.selectCurrentPin()}
       />
     </View>
   );

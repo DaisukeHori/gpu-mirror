@@ -12,3 +12,21 @@ major_version = 15
 [storage]
 enabled = true
 file_size_limit = "10MB"
+
+[auth]
+site_url = "https://revol-mirror-admin.vercel.app/login"
+additional_redirect_urls = [
+  "https://revol-mirror-admin.vercel.app/login",
+  "http://localhost:3001/**",
+  "http://localhost:8081/**",
+  "revol-mirror://**",
+]
+
+[auth.mfa.totp]
+enroll_enabled = true
+verify_enabled = true
+
+[auth.email]
+enable_confirmations = true
+max_frequency = "1m0s"
+otp_length = 8

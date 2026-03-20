@@ -88,13 +88,6 @@ beforeEach(() => {
       });
     }
 
-    if (url.includes('/api/proxy-image') && method === 'POST') {
-      return Promise.resolve({
-        ok: true,
-        json: () => Promise.resolve({ storage_path: 'sess-1/ref.jpg', url: 'https://signed/ref-url' }),
-      });
-    }
-
     if (url.includes('/api/generate') && method === 'POST') {
       const encoder = new TextEncoder();
       const readable = new ReadableStream({
@@ -185,12 +178,14 @@ describe('Full User Flow: Camera → Explore → Generate → Result', () => {
     const colors = await apiGet<{ colors: { id: string }[] }>('/api/colors');
     expect(colors.colors.length).toBeGreaterThan(0);
 
-    // Proxy a Pinterest image
-    const proxyResult = await apiPost<{ storage_path: string }>('/api/proxy-image', {
-      url: 'https://i.pinimg.com/originals/test.jpg',
-      session_id: sessionId,
-    });
-    expect(proxyResult.storage_path).toBeDefined();
+    // Upload a Pinterest reference image after downloading it on the client
+    const pinterestUpload = await uploadFile(
+      '/api/upload',
+      { uri: 'file://pinterest.jpg', name: 'pinterest.jpg', type: 'image/jpeg' },
+      sessionId,
+      'reference-photos',
+    );
+    expect(pinterestUpload.storage_path).toBeDefined();
 
     // === STEP 3: Generating Screen ===
     const sseEvents: Record<string, unknown>[] = [];
@@ -262,13 +257,12 @@ describe('Full User Flow: Camera → Explore → Generate → Result', () => {
 
     // Session lifecycle
     expect(methods).toContain('POST /api/sessions');
-    expect(methods).toContain('POST /api/upload');
+    expect(methods.filter((m) => m === 'POST /api/upload').length).toBe(2);
     expect(methods.filter((m) => m === 'PATCH /api/sessions/sess-1').length).toBe(2);
 
     // Explore
     expect(methods.some((m) => m.startsWith('GET /api/catalog'))).toBe(true);
     expect(methods.some((m) => m.startsWith('GET /api/colors'))).toBe(true);
-    expect(methods).toContain('POST /api/proxy-image');
 
     // Generate
     expect(methods).toContain('POST /api/generate');

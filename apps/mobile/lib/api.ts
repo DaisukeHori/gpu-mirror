@@ -1,12 +1,25 @@
 import { supabase } from './supabase';
 
-const API_BASE = process.env.EXPO_PUBLIC_API_BASE_URL ?? 'http://localhost:3000';
+const DEFAULT_API_BASE = 'https://revol-mirror-api.vercel.app';
+const API_BASE = process.env.EXPO_PUBLIC_API_BASE_URL?.trim() || DEFAULT_API_BASE;
 
 export interface UploadableFile {
   uri: string;
   name: string;
   type: string;
   file?: Blob | null;
+}
+
+function isBrowserRuntime(): boolean {
+  return typeof window !== 'undefined' && typeof document !== 'undefined';
+}
+
+function buildNativeMultipartFile(file: UploadableFile) {
+  return {
+    uri: file.uri,
+    name: file.name,
+    type: file.type,
+  };
 }
 
 async function getAuthHeaders(): Promise<Record<string, string>> {
@@ -71,9 +84,14 @@ export async function uploadFile(
   sessionId: string,
   bucket: string = 'customer-photos',
 ): Promise<{ storage_path: string; url: string }> {
+  console.log('[uploadFile] start', { path, fileUri: file.uri, fileName: file.name, fileType: file.type, sessionId, bucket });
   const { data: { session } } = await supabase.auth.getSession();
+  if (!session?.access_token) {
+    throw new Error('ログイン情報の取得に失敗しました。再ログインしてください。');
+  }
+
   const formData = new FormData();
-  const isWeb = typeof window !== 'undefined' && typeof document !== 'undefined';
+  const isWeb = isBrowserRuntime();
 
   if (isWeb) {
     let blob: Blob;
@@ -84,25 +102,29 @@ export async function uploadFile(
     }
     formData.append('file', blob, file.name);
   } else {
-    formData.append('file', file as unknown as Blob);
+    formData.append('file', buildNativeMultipartFile(file) as unknown as Blob);
   }
 
   formData.append('session_id', sessionId);
   formData.append('bucket', bucket);
 
+  console.log('[uploadFile] sending to', `${API_BASE}${path}`);
   const res = await fetch(`${API_BASE}${path}`, {
     method: 'POST',
     headers: {
-      Authorization: `Bearer ${session?.access_token ?? ''}`,
+      Authorization: `Bearer ${session.access_token}`,
     },
     body: formData,
   });
 
   if (!res.ok) {
     const err = await res.json().catch(() => ({ message: res.statusText }));
+    console.error('[uploadFile] error response', res.status, err);
     throw new Error(err.message ?? `Upload error: ${res.status}`);
   }
-  return res.json();
+  const result = await res.json();
+  console.log('[uploadFile] success', result);
+  return result;
 }
 
 export interface SSECallbacks {
@@ -128,7 +150,7 @@ export async function apiSSE(
       signal: abortSignal,
     });
   } catch (err) {
-    if (err instanceof DOMException && err.name === 'AbortError') return;
+    if (err instanceof Error && err.name === 'AbortError') return;
     callbacks.onError?.(err instanceof Error ? err : new Error('Network error'));
     return;
   }
@@ -168,7 +190,7 @@ export async function apiSSE(
     // Stream ended — notify caller regardless of whether all_completed was received
     callbacks.onComplete?.();
   } catch (err) {
-    if (err instanceof DOMException && err.name === 'AbortError') return;
+    if (err instanceof Error && err.name === 'AbortError') return;
     callbacks.onError?.(err instanceof Error ? err : new Error('Stream read error'));
   } finally {
     reader.releaseLock();

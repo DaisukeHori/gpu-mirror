@@ -1,5 +1,6 @@
 import { View, Text, Pressable, Alert, ScrollView } from 'react-native';
 import { router } from 'expo-router';
+import { getBrowserHistoryLength } from '../lib/browser';
 import { supabase } from '../lib/supabase';
 import { HapticButton } from '../components/common/HapticButton';
 import { useAppTheme } from '../lib/theme-provider';
@@ -9,6 +10,16 @@ export default function SettingsScreen() {
   const theme = useAppTheme();
   const { staff, loading } = useCurrentStaff();
   const isPrivileged = staff?.role === 'admin' || staff?.role === 'manager';
+
+  const handleBack = () => {
+    const historyLength = getBrowserHistoryLength();
+    if (historyLength !== null && historyLength <= 1) {
+      router.replace('/');
+      return;
+    }
+
+    router.back();
+  };
 
   const handleLogout = async () => {
     try {
@@ -21,7 +32,7 @@ export default function SettingsScreen() {
 
   return (
     <ScrollView className="flex-1 bg-bg" contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 80, paddingBottom: 40 }}>
-      <Pressable onPress={() => router.back()} className="mb-8 py-2 self-start">
+      <Pressable onPress={handleBack} className="mb-8 py-2 self-start">
         <Text className="text-text-muted text-sm tracking-wide">戻る</Text>
       </Pressable>
 

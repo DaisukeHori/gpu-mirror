@@ -1,65 +1,80 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-vi.mock('../../lib/supabase', () => ({
-  supabase: {
-    auth: {
-      getSession: vi.fn().mockResolvedValue({
-        data: { session: { access_token: 'test-token' } },
-      }),
-    },
-  },
+const {
+  mockUploadFile,
+  mockDownloadRemoteImageToCache,
+} = vi.hoisted(() => ({
+  mockUploadFile: vi.fn(),
+  mockDownloadRemoteImageToCache: vi.fn(),
 }));
 
-const originalFetch = global.fetch;
-let mockFetch: ReturnType<typeof vi.fn>;
+vi.mock('../../lib/api', () => ({
+  uploadFile: mockUploadFile,
+}));
 
-beforeEach(() => {
-  mockFetch = vi.fn();
-  global.fetch = mockFetch as unknown as typeof fetch;
-});
+vi.mock('../../lib/image-cache', () => ({
+  downloadRemoteImageToCache: mockDownloadRemoteImageToCache,
+}));
 
-afterEach(() => {
-  global.fetch = originalFetch;
-});
+import { importPinterestImage } from '../../hooks/usePinterest';
 
-import { apiPost } from '../../lib/api';
-
-describe('usePinterest hook API calls', () => {
-  it('POST /api/proxy-image with Pinterest URL', async () => {
-    mockFetch.mockResolvedValue({
-      ok: true,
-      json: () => Promise.resolve({
-        storage_path: 'sess-1/abc123.jpg',
-        url: 'https://test.supabase.co/signed/pinterest-image',
-      }),
-    });
-
-    const result = await apiPost<{ storage_path: string; url: string }>('/api/proxy-image', {
-      url: 'https://i.pinimg.com/originals/abc/def.jpg',
-      session_id: 'sess-1',
-    });
-
-    expect(result.storage_path).toBe('sess-1/abc123.jpg');
-    expect(result.url).toContain('pinterest-image');
-
-    const [url, opts] = mockFetch.mock.calls[0];
-    expect(url).toContain('/api/proxy-image');
-    expect(opts.method).toBe('POST');
-    const body = JSON.parse(opts.body);
-    expect(body.url).toContain('pinimg.com');
-    expect(body.session_id).toBe('sess-1');
+describe('importPinterestImage', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
   });
 
-  it('rejects non-Pinterest URLs', async () => {
-    mockFetch.mockResolvedValue({
-      ok: false,
-      status: 400,
-      statusText: 'Bad Request',
-      json: () => Promise.resolve({ message: 'URL not allowed' }),
+  it('downloads locally before uploading to reference storage', async () => {
+    mockDownloadRemoteImageToCache.mockResolvedValue('file://cache/pinterest.jpg');
+    mockUploadFile.mockResolvedValue({
+      storage_path: 'sess-1/ref.jpg',
+      url: 'https://signed/ref-url',
     });
 
+    const result = await importPinterestImage(
+      'https://i.pinimg.com/originals/ab/cd/example.jpg',
+      'sess-1',
+    );
+
+    expect(mockDownloadRemoteImageToCache).toHaveBeenCalledWith(
+      'https://i.pinimg.com/originals/ab/cd/example.jpg',
+      'pinterest',
+    );
+    expect(mockUploadFile).toHaveBeenCalledWith(
+      '/api/upload',
+      {
+        uri: 'file://cache/pinterest.jpg',
+        name: expect.stringMatching(/^pinterest_\d+\.jpg$/),
+        type: 'image/jpeg',
+      },
+      'sess-1',
+      'reference-photos',
+    );
+    expect(result).toEqual({
+      url: 'https://i.pinimg.com/originals/ab/cd/example.jpg',
+      storagePath: 'sess-1/ref.jpg',
+      signedUrl: 'https://signed/ref-url',
+      localFileUri: 'file://cache/pinterest.jpg',
+    });
+  });
+
+  it('throws when local download fails', async () => {
+    mockDownloadRemoteImageToCache.mockRejectedValue(
+      new Error('Pinterest画像のダウンロードに失敗しました。'),
+    );
+
     await expect(
-      apiPost('/api/proxy-image', { url: 'https://evil.com/image.jpg', session_id: 'sess-1' }),
-    ).rejects.toThrow('URL not allowed');
+      importPinterestImage('https://i.pinimg.com/originals/ab/cd/example.jpg', 'sess-1'),
+    ).rejects.toThrow('Pinterest画像のダウンロードに失敗しました');
+
+    expect(mockUploadFile).not.toHaveBeenCalled();
+  });
+
+  it('throws when upload fails', async () => {
+    mockDownloadRemoteImageToCache.mockResolvedValue('file://cache/pinterest.jpg');
+    mockUploadFile.mockRejectedValue(new Error('Upload error: 500'));
+
+    await expect(
+      importPinterestImage('https://i.pinimg.com/originals/ab/cd/example.jpg', 'sess-1'),
+    ).rejects.toThrow('画像のアップロードに失敗しました');
   });
 });

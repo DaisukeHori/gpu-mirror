@@ -15,6 +15,7 @@ import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import type { GetSessionResponse, ListSessionsResponse } from '@revol-mirror/shared';
 import { apiGet } from '../../../lib/api';
+import { getBrowserHistoryLength } from '../../../lib/browser';
 import { useAppTheme } from '../../../lib/theme-provider';
 import { useCurrentStaff } from '../../../hooks/useCurrentStaff';
 import { HapticButton } from '../../../components/common/HapticButton';
@@ -274,12 +275,22 @@ export default function AdminSessionsScreen() {
     }
   }, [selectedSession]);
 
+  const handleBack = useCallback(() => {
+    const historyLength = getBrowserHistoryLength();
+    if (historyLength !== null && historyLength <= 1) {
+      router.replace('/settings');
+      return;
+    }
+
+    router.back();
+  }, []);
+
   return (
     <View className="flex-1 bg-bg">
       <View className="px-6 pt-16 pb-5 border-b border-border bg-bg">
         <View className="flex-row items-start justify-between gap-4">
           <View className="flex-1">
-            <Pressable onPress={() => router.back()} className="py-2 mb-4 self-start">
+            <Pressable onPress={handleBack} className="py-2 mb-4 self-start">
               <Text className="text-text-muted text-sm tracking-wide">戻る</Text>
             </Pressable>
             <Text className="text-text-primary text-2xl font-semibold">施術ログ</Text>

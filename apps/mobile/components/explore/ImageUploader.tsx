@@ -41,12 +41,16 @@ export function ImageUploader({ sessionId, onUpload }: ImageUploaderProps) {
       onUpload({
         id: uploaded.storage_path,
         thumbnailUrl: uploaded.url,
+        localThumbnailUri: asset.uri,
         storagePath: uploaded.storage_path,
         label: 'アップロード',
         referenceType: 'upload',
       });
-    } catch {
-      Alert.alert('エラー', '画像のアップロードに失敗しました。もう一度お試しください。');
+    } catch (err) {
+      Alert.alert(
+        'エラー',
+        err instanceof Error ? err.message : '画像のアップロードに失敗しました。もう一度お試しください。',
+      );
     } finally {
       setUploading(false);
     }

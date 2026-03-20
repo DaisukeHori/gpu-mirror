@@ -1,4 +1,5 @@
 import { useState, useCallback, useRef } from 'react';
+import { downloadAndCache } from '../lib/generation-cache';
 import { apiSSE, apiGet, apiPost } from '../lib/api';
 
 export interface GenerationResult {
@@ -42,6 +43,59 @@ export function useGenerate() {
   const abortRef = useRef<AbortController | null>(null);
   const sessionIdRef = useRef<string | null>(null);
 
+  const upsertResult = useCallback((result: GenerationResult) => {
+    setResults((prev) => {
+      const existingIndex = prev.findIndex((item) => item.generation_id === result.generation_id);
+      if (existingIndex === -1) {
+        return [...prev, result];
+      }
+
+      const next = [...prev];
+      next[existingIndex] = { ...next[existingIndex], ...result };
+      return next;
+    });
+  }, []);
+
+  const updateProgressStatus = useCallback(
+    (
+      styleGroup: number,
+      angle: string,
+      status: 'completed' | 'failed',
+      defaultTotal: number,
+    ) => {
+      setProgress((prev) => {
+        const next = new Map(prev);
+        const existing = next.get(styleGroup) ?? {
+          style_group: styleGroup,
+          completed: [],
+          failed: [],
+          total: defaultTotal,
+        };
+
+        const completed = new Set(existing.completed);
+        const failed = new Set(existing.failed);
+
+        if (status === 'completed') {
+          completed.add(angle);
+          failed.delete(angle);
+        } else {
+          failed.add(angle);
+          completed.delete(angle);
+        }
+
+        next.set(styleGroup, {
+          style_group: styleGroup,
+          completed: Array.from(completed),
+          failed: Array.from(failed),
+          total: existing.total,
+        });
+
+        return next;
+      });
+    },
+    [],
+  );
+
   const syncFromDB = useCallback(async (sessionId: string): Promise<boolean> => {
     try {
       const data = await apiGet<{ session: { session_generations: GenerationRecord[] } }>(
@@ -59,6 +113,26 @@ export function useGenerate() {
       }));
 
       setResults(newResults);
+
+      for (const r of newResults) {
+        if (r.photo_url && r.status === 'completed') {
+          const rid = r.generation_id;
+          const url = r.photo_url;
+          downloadAndCache(sessionId, rid, url, {
+            style_group: r.style_group,
+            angle: r.angle,
+            style_label: r.style_label,
+          }).then((localUri) => {
+            if (localUri !== url) {
+              setResults((prev) =>
+                prev.map((p) =>
+                  p.generation_id === rid ? { ...p, photo_url: localUri } : p,
+                ),
+              );
+            }
+          });
+        }
+      }
 
       const groupMap = new Map<number, StyleGroupProgress>();
       for (const r of newResults) {
@@ -116,19 +190,15 @@ export function useGenerate() {
 
       const angleCount = angles?.length ?? 5;
       let sseReceivedAllCompleted = false;
+      let hasStartedPolling = false;
 
-      function ensureGroup(prev: Map<number, StyleGroupProgress>, groupNum: number) {
-        const next = new Map(prev);
-        if (!next.has(groupNum)) {
-          next.set(groupNum, {
-            style_group: groupNum,
-            completed: [],
-            failed: [],
-            total: angleCount,
-          });
-        }
-        return next;
-      }
+      const ensurePolling = () => {
+        if (hasStartedPolling) return;
+        hasStartedPolling = true;
+        void pollUntilDone(sessionId, controller.signal);
+      };
+
+      ensurePolling();
 
       await apiSSE(
         '/api/generate',
@@ -138,6 +208,23 @@ export function useGenerate() {
             if (controller.signal.aborted) return;
 
             if (event.type === 'generation_completed') {
+              if (event.photo_url) {
+                const url = event.photo_url as string;
+                const eid = event.generation_id as string;
+                downloadAndCache(sessionIdRef.current!, eid, url, {
+                  style_group: event.style_group as number,
+                  angle: event.angle as string,
+                  style_label: event.style_label as string | undefined,
+                }).then((localUri) => {
+                  if (localUri !== url) {
+                    setResults((prev) =>
+                      prev.map((p) =>
+                        p.generation_id === eid ? { ...p, photo_url: localUri } : p,
+                      ),
+                    );
+                  }
+                });
+              }
               const result: GenerationResult = {
                 generation_id: event.generation_id as string,
                 style_group: event.style_group as number,
@@ -147,13 +234,8 @@ export function useGenerate() {
                 ai_latency_ms: event.ai_latency_ms as number | undefined,
                 status: 'completed',
               };
-              setResults((prev) => [...prev, result]);
-              setProgress((prev) => {
-                const next = ensureGroup(prev, result.style_group);
-                const group = next.get(result.style_group)!;
-                group.completed.push(result.angle);
-                return next;
-              });
+              upsertResult(result);
+              updateProgressStatus(result.style_group, result.angle, 'completed', angleCount);
             } else if (event.type === 'generation_failed') {
               const result: GenerationResult = {
                 generation_id: event.generation_id as string,
@@ -162,13 +244,8 @@ export function useGenerate() {
                 status: 'failed',
                 error: event.error as string,
               };
-              setResults((prev) => [...prev, result]);
-              setProgress((prev) => {
-                const next = ensureGroup(prev, result.style_group);
-                const group = next.get(result.style_group)!;
-                group.failed.push(result.angle);
-                return next;
-              });
+              upsertResult(result);
+              updateProgressStatus(result.style_group, result.angle, 'failed', angleCount);
             } else if (event.type === 'all_completed') {
               sseReceivedAllCompleted = true;
               // actual state update happens in onComplete to avoid double-set
@@ -176,23 +253,26 @@ export function useGenerate() {
           },
           onError: () => {
             if (controller.signal.aborted || sseReceivedAllCompleted) return;
-            pollUntilDone(sessionId, controller.signal);
+            ensurePolling();
           },
           onComplete: () => {
             if (controller.signal.aborted) return;
             if (sseReceivedAllCompleted) {
-              setIsComplete(true);
-              setIsGenerating(false);
+              void syncFromDB(sessionId).finally(() => {
+                if (controller.signal.aborted) return;
+                setIsComplete(true);
+                setIsGenerating(false);
+              });
               return;
             }
             // Stream closed without all_completed — fall back to polling
-            pollUntilDone(sessionId, controller.signal);
+            ensurePolling();
           },
         },
         controller.signal,
       );
     },
-    [pollUntilDone],
+    [pollUntilDone, syncFromDB, updateProgressStatus, upsertResult],
   );
 
   const retryGeneration = useCallback(

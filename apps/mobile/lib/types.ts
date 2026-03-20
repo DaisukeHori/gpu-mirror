@@ -6,6 +6,7 @@ import type {
 export interface SelectedStyle {
   id: string;
   thumbnailUrl: string;
+  localThumbnailUri?: string;
   storagePath: string;
   label: string;
   referenceType: ReferenceType;

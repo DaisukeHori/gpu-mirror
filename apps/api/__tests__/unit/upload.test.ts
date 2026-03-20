@@ -36,7 +36,7 @@ vi.mock('../../lib/image-utils', () => ({
 }));
 
 import { POST } from '../../app/api/upload/route';
-import { validateImageSize } from '../../lib/image-utils';
+import { resizeImage, validateImageSize } from '../../lib/image-utils';
 
 function createFormDataRequest(fields: Record<string, string | Blob>): NextRequest {
   const formData = new FormData();
@@ -120,5 +120,18 @@ describe('POST /api/upload', () => {
 
     const res = await POST(req);
     expect(res.status).toBe(500);
+  });
+
+  it('returns 500 with message when image processing fails', async () => {
+    vi.mocked(resizeImage).mockRejectedValueOnce(new Error('Input buffer contains unsupported image format'));
+
+    const file = new Blob(['not-an-image'], { type: 'image/jpeg' });
+    const req = createFormDataRequest({ file, session_id: 'sess-1', bucket: 'reference-photos' });
+
+    const res = await POST(req);
+    const body = await res.json();
+
+    expect(res.status).toBe(500);
+    expect(body.message).toContain('unsupported image format');
   });
 });
