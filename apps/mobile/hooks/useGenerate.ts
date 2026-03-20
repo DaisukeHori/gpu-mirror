@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { downloadAndCache } from '../lib/generation-cache';
 import { apiSSE, apiGet, apiPost } from '../lib/api';
 
@@ -152,10 +152,11 @@ export function useGenerate() {
       }
       setProgress(groupMap);
 
+      const allGensFinished = gens.length > 0 && gens.every((g) => g.status === 'completed' || g.status === 'failed');
       const newGens = gens.filter((g) => (g.style_group ?? 0) > prevMaxStyleGroupRef.current);
       const hasNewGens = newGens.length > 0;
-      const allDone = hasNewGens && newGens.every((g) => g.status === 'completed' || g.status === 'failed');
-      return allDone;
+      const newGensDone = hasNewGens && newGens.every((g) => g.status === 'completed' || g.status === 'failed');
+      return newGensDone || (allGensFinished && gens.length > prevMaxStyleGroupRef.current * 5);
     } catch {
       return false;
     }
@@ -322,7 +323,18 @@ export function useGenerate() {
           ),
         );
 
-        return {
+        useEffect(() => {
+    if (!isGenerating || isComplete || progress.size === 0) return;
+    const allGroupsDone = Array.from(progress.values()).every(
+      (g) => g.completed.length + g.failed.length >= g.total,
+    );
+    if (allGroupsDone) {
+      setIsComplete(true);
+      setIsGenerating(false);
+    }
+  }, [progress, isGenerating, isComplete]);
+
+  return {
           generation_id: data.generation_id,
           style_group: 0,
           angle: '',
@@ -354,6 +366,17 @@ export function useGenerate() {
     setIsGenerating(false);
     setIsComplete(false);
   }, []);
+
+  useEffect(() => {
+    if (!isGenerating || isComplete || progress.size === 0) return;
+    const allGroupsDone = Array.from(progress.values()).every(
+      (g) => g.completed.length + g.failed.length >= g.total,
+    );
+    if (allGroupsDone) {
+      setIsComplete(true);
+      setIsGenerating(false);
+    }
+  }, [progress, isGenerating, isComplete]);
 
   return {
     results,
