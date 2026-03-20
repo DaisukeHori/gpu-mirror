@@ -9,6 +9,11 @@ export interface CachedGeneration {
   style_label?: string;
   is_favorite: boolean;
   remoteUrl: string;
+  reference_photo_path?: string;
+  reference_type?: string;
+  reference_source_url?: string;
+  simulation_mode?: string;
+  generated_photo_path?: string;
 }
 
 const cache = new Map<string, CachedGeneration[]>();
@@ -39,7 +44,7 @@ export async function downloadAndCache(
   sessionId: string,
   genId: string,
   remoteUrl: string,
-  meta: { style_group: number; angle: string; style_label?: string },
+  meta: { style_group: number; angle: string; style_label?: string; reference_photo_path?: string; reference_type?: string; reference_source_url?: string; simulation_mode?: string; generated_photo_path?: string },
 ): Promise<string> {
   if (downloadingUrls.has(genId)) return remoteUrl;
 
@@ -67,6 +72,11 @@ export async function downloadAndCache(
       style_label: meta.style_label,
       is_favorite: false,
       remoteUrl,
+      reference_photo_path: meta.reference_photo_path,
+      reference_type: meta.reference_type,
+      reference_source_url: meta.reference_source_url,
+      simulation_mode: meta.simulation_mode,
+      generated_photo_path: meta.generated_photo_path,
     });
 
     downloadingUrls.delete(genId);

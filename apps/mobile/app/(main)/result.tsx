@@ -38,6 +38,11 @@ export default function ResultScreen() {
         status: c.status,
         style_label: c.style_label,
         is_favorite: c.is_favorite,
+        reference_photo_path: c.reference_photo_path,
+        reference_type: c.reference_type,
+        reference_source_url: c.reference_source_url,
+        simulation_mode: c.simulation_mode,
+        generated_photo_path: c.generated_photo_path,
       } as Generation));
       setGenerations(asGens);
       setLoading(false);
@@ -63,6 +68,11 @@ export default function ResultScreen() {
             style_group: g.style_group,
             angle: g.angle,
             style_label: g.style_label ?? undefined,
+            reference_photo_path: (g as any).reference_photo_path,
+            reference_type: (g as any).reference_type,
+            reference_source_url: (g as any).reference_source_url,
+            simulation_mode: (g as any).simulation_mode,
+            generated_photo_path: (g as any).generated_photo_path,
           }).then((localUri) => {
             if (localUri !== g.photo_url) {
               setGenerations((prev) =>
@@ -103,14 +113,24 @@ export default function ResultScreen() {
     const instruction = refineText.trim();
     setRefineText('');
     try {
-      const currentGen = generations.find((g) => g.id === viewerGen.id);
-      if (!currentGen) return;
+      const freshData = await apiGet<{
+        session: { session_generations: Array<{ id: string; style_group: number; reference_photo_path?: string; reference_type?: string; reference_source_url?: string; simulation_mode?: string; generated_photo_path?: string; style_label?: string }> };
+      }>(`/api/sessions/${sessionId}`);
+      const freshGens = freshData.session.session_generations ?? [];
+      const match = freshGens.find((g) => g.style_group === viewerGen.style_group);
+      if (!match) { setRefining(false); return; }
+      const refPath = match.reference_photo_path || match.generated_photo_path;
+      if (!refPath) {
+        Alert.alert('再生成できません', '参照画像が見つかりません。');
+        setRefining(false);
+        return;
+      }
       const style = {
-        simulation_mode: currentGen.simulation_mode ?? 'style',
-        reference_type: currentGen.reference_type ?? 'pinterest',
-        reference_photo_path: currentGen.reference_photo_path,
-        reference_source_url: currentGen.reference_source_url,
-        style_label: (currentGen.style_label ?? 'Pinterest') + ' (refined)',
+        simulation_mode: match.simulation_mode ?? 'style',
+        reference_type: match.reference_type ?? 'upload',
+        reference_photo_path: refPath,
+        reference_source_url: match.reference_source_url,
+        style_label: (match.style_label ?? 'Pinterest') + ' (refined)',
       };
       const res = await apiPost<{ message?: string }>('/api/generate', {
         session_id: sessionId,

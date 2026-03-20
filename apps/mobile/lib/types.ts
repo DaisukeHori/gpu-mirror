@@ -27,6 +27,9 @@ export type Generation = Pick<
   | 'style_label'
   | 'is_favorite'
   | 'simulation_mode'
+  | 'reference_photo_path'
+  | 'reference_type'
+  | 'reference_source_url'
   | 'is_selected'
 > & {
   photo_url: string | null;
