@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { View, Text, Pressable, Alert } from 'react-native';
+import { View, Text, Pressable, Alert, Image as RNImage } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { apiGet, apiPatch, apiPost } from '../../lib/api';
 import { useCloseSession } from '../../hooks/useCloseSession';
@@ -51,6 +51,9 @@ export default function ResultScreen() {
         photo_url_prefix: g.photo_url?.slice(0, 50),
       })));
       setGenerations(gens);
+      gens.forEach((g) => {
+        if (g.photo_url) RNImage.prefetch(g.photo_url);
+      });
     } catch (err) {
       console.error('Failed to fetch session:', err);
     } finally {

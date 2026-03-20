@@ -27,18 +27,31 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   }
 
   const gens = (session.session_generations ?? []) as Record<string, unknown>[];
-  const enriched = await Promise.all(
-    gens.map(async (g) => {
-      let photo_url: string | null = null;
-      if (g.generated_photo_path) {
-        const { data } = await supabaseAdmin.storage
-          .from('generated-photos')
-          .createSignedUrl(g.generated_photo_path as string, 3600);
-        photo_url = data?.signedUrl ?? null;
+
+  const photoPaths = gens
+    .map((g) => g.generated_photo_path as string | null)
+    .filter((p): p is string => !!p);
+
+  const signedUrlMap = new Map<string, string>();
+
+  if (photoPaths.length > 0) {
+    const { data: signedUrls } = await supabaseAdmin.storage
+      .from('generated-photos')
+      .createSignedUrls(photoPaths, 3600);
+
+    if (signedUrls) {
+      for (const entry of signedUrls) {
+        if (entry.signedUrl && entry.path) {
+          signedUrlMap.set(entry.path, entry.signedUrl);
+        }
       }
-      return { ...g, photo_url };
-    }),
-  );
+    }
+  }
+
+  const enriched = gens.map((g) => {
+    const path = g.generated_photo_path as string | null;
+    return { ...g, photo_url: path ? (signedUrlMap.get(path) ?? null) : null };
+  });
 
   let customer_photo_url: string | null = null;
   if (session.customer_photo_path && session.customer_photo_path !== 'pending') {
