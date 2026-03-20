@@ -44,7 +44,7 @@ export default function WelcomeScreen() {
   }));
 
   const handleStart = () => {
-    router.push('/(main)/photo-prep');
+    router.push('/(main)/terms');
   };
 
   const handleSelectSession = (sessionId: string) => {
