@@ -28,27 +28,6 @@ export default function ResultScreen() {
   const fetchSession = useCallback(async () => {
     if (!sessionId) return;
 
-    const cached = getCachedGenerations(sessionId);
-    if (cached.length > 0) {
-      const asGens: Generation[] = cached.map((c) => ({
-        id: c.id,
-        style_group: c.style_group,
-        angle: c.angle,
-        photo_url: c.localUri,
-        status: c.status,
-        style_label: c.style_label,
-        is_favorite: c.is_favorite,
-        reference_photo_path: c.reference_photo_path,
-        reference_type: c.reference_type,
-        reference_source_url: c.reference_source_url,
-        simulation_mode: c.simulation_mode,
-        generated_photo_path: c.generated_photo_path,
-      } as Generation));
-      setGenerations(asGens);
-      setLoading(false);
-      return;
-    }
-
     setLoading(true);
     try {
       const res = await apiGet<{
