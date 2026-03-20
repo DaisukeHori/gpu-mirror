@@ -10,7 +10,6 @@ import { CompareGrid } from '../../components/result/CompareGrid';
 import { DetailView } from '../../components/result/DetailView';
 import { FullscreenViewer } from '../../components/result/FullscreenViewer';
 import { ShareSheet } from '../../components/result/ShareSheet';
-import { HapticButton } from '../../components/common/HapticButton';
 import { impactLight } from '../../lib/haptics';
 
 type ViewMode = 'compare' | 'detail';
@@ -42,7 +41,16 @@ export default function ResultScreen() {
       }>(`/api/sessions/${sessionId}`);
       setCustomerPhotoUrl(res.session.customer_photo_url ?? null);
       setCustomerPhotoPath(res.session.customer_photo_path ?? null);
-      setGenerations(res.session.session_generations ?? []);
+      const gens = res.session.session_generations ?? [];
+      console.log('[Result] fetched generations', gens.length, gens.map(g => ({
+        id: g.id?.slice(0, 8),
+        status: g.status,
+        angle: g.angle,
+        style_group: g.style_group,
+        has_photo_url: !!g.photo_url,
+        photo_url_prefix: g.photo_url?.slice(0, 50),
+      })));
+      setGenerations(gens);
     } catch (err) {
       console.error('Failed to fetch session:', err);
     } finally {
@@ -131,16 +139,7 @@ export default function ResultScreen() {
     router.push('/(main)/camera');
   };
 
-  const handleNextCustomer = () => {
-    Alert.alert(
-      'セッションを終了しますか？',
-      '画像は履歴からいつでも確認できます。',
-      [
-        { text: 'キャンセル', style: 'cancel' },
-        { text: '終了する', style: 'destructive', onPress: handleExit },
-      ],
-    );
-  };
+
 
   if (loading) {
     return (
@@ -154,6 +153,9 @@ export default function ResultScreen() {
     <View className="flex-1 bg-bg">
       {/* Header with segment control */}
       <View className="flex-row items-center justify-between px-5 pt-16 pb-3">
+        <Pressable className="py-2 pr-4" onPress={() => router.replace('/(main)')}>
+          <Text className="text-text-muted text-sm tracking-wide">ホーム</Text>
+        </Pressable>
         <View className="flex-row bg-bg-surface rounded-pill p-1 border border-border">
           {(['compare', 'detail'] as const).map((mode) => (
             <Pressable
@@ -244,12 +246,7 @@ export default function ResultScreen() {
           >
             <Text className="text-text-secondary text-xs tracking-wide">共有</Text>
           </Pressable>
-          <View className="flex-1" />
-          <HapticButton
-            title="次のお客さまへ"
-            size="sm"
-            onPress={handleNextCustomer}
-          />
+
         </View>
       </View>
 

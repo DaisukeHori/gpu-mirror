@@ -127,6 +127,17 @@ export async function POST(request: NextRequest) {
 
   const nextStyleGroup = ((existingGens?.[0]?.style_group as number) ?? 0) + 1;
 
+  const { data: existingCompleted } = await supabaseAdmin
+    .from('session_generations')
+    .select('reference_photo_path, angle, status')
+    .eq('session_id', session_id)
+    .eq('status', 'completed')
+    .not('reference_photo_path', 'is', null);
+
+  const completedSet = new Set(
+    (existingCompleted ?? []).map((g) => `${g.reference_photo_path}::${g.angle}`),
+  );
+
   const tasks: GenerationTask[] = [];
 
   for (let i = 0; i < styles.length; i++) {
@@ -134,6 +145,11 @@ export async function POST(request: NextRequest) {
     const styleGroup = nextStyleGroup + i;
 
     for (const angle of angles) {
+      const dedupKey = `${style.reference_photo_path ?? ''}::${angle}`;
+      if (style.reference_photo_path && completedSet.has(dedupKey)) {
+        continue;
+      }
+
       const { data: gen } = await supabaseAdmin
         .from('session_generations')
         .insert({
