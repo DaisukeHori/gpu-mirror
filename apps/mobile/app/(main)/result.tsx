@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { View, Text, Pressable, Alert, Image as RNImage, useWindowDimensions, ScrollView, ActivityIndicator, FlatList } from 'react-native';
+import { View, Text, Pressable, Alert, Image as RNImage, useWindowDimensions, ScrollView, ActivityIndicator, FlatList, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { apiGet, apiPatch, apiPost } from '../../lib/api';
 import { useCloseSession } from '../../hooks/useCloseSession';
@@ -21,6 +21,8 @@ export default function ResultScreen() {
   const [customerPhotoPath, setCustomerPhotoPath] = useState<string | null>(null);
   const [shareVisible, setShareVisible] = useState(false);
   const [viewerGen, setViewerGen] = useState<Generation | null>(null);
+  const [refineText, setRefineText] = useState('');
+  const [refining, setRefining] = useState(false);
   const closeSession = useCloseSession(sessionId);
 
   const fetchSession = useCallback(async () => {
@@ -95,7 +97,41 @@ export default function ResultScreen() {
     }
   };
 
-  const handleAddStyles = () => {
+  const handleRefine = async () => {
+    if (!viewerGen || !refineText.trim() || !sessionId || refining) return;
+    setRefining(true);
+    const instruction = refineText.trim();
+    setRefineText('');
+    try {
+      const currentGen = generations.find((g) => g.id === viewerGen.id);
+      if (!currentGen) return;
+      const style = {
+        simulation_mode: currentGen.simulation_mode ?? 'style',
+        reference_type: currentGen.reference_type ?? 'pinterest',
+        reference_photo_path: currentGen.reference_photo_path,
+        reference_source_url: currentGen.reference_source_url,
+        style_label: (currentGen.style_label ?? 'Pinterest') + ' (refined)',
+      };
+      const res = await apiPost<{ message?: string }>('/api/generate', {
+        session_id: sessionId,
+        styles: [style],
+        custom_instruction: instruction,
+      });
+      await new Promise((r) => setTimeout(r, 3000));
+      await fetchSession();
+      const newGens = generations.filter((g) => g.status === 'completed' && g.photo_url);
+      const latestGlamour = newGens
+        .filter((g) => g.angle === 'glamour')
+        .sort((a, b) => b.style_group - a.style_group)[0];
+      if (latestGlamour) setViewerGen(latestGlamour);
+    } catch (err) {
+      Alert.alert('再生成に失敗しました', err instanceof Error ? err.message : 'もう一度お試しください。');
+    } finally {
+      setRefining(false);
+    }
+  };
+
+    const handleAddStyles = () => {
     if (!sessionId) return;
     router.push({
       pathname: '/(main)/explore',
@@ -149,6 +185,49 @@ export default function ResultScreen() {
           screenWidth={screenWidth}
           onIndexChange={(idx) => setViewerGen(sameStyle[idx])}
         />
+
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={{ paddingHorizontal: 20, paddingBottom: 32, paddingTop: 12 }}
+        >
+          <Text style={{ color: 'rgba(151,145,137,0.48)', fontSize: 12, marginBottom: 8, textAlign: 'center' }}>
+            フリーワードでスタイルを調整
+          </Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+            <TextInput
+              value={refineText}
+              onChangeText={setRefineText}
+              placeholder="例: もう少し明るめに、前髪を軽く..."
+              placeholderTextColor="rgba(151,145,137,0.4)"
+              style={{
+                flex: 1,
+                backgroundColor: 'rgba(151,145,137,0.1)',
+                borderRadius: 999,
+                paddingHorizontal: 16,
+                paddingVertical: 12,
+                color: '#E8E0D8',
+                fontSize: 14,
+              }}
+              returnKeyType="send"
+              onSubmitEditing={handleRefine}
+              editable={!refining}
+            />
+            <Pressable
+              style={{
+                paddingHorizontal: 20,
+                paddingVertical: 12,
+                borderRadius: 999,
+                backgroundColor: refineText.trim() && !refining ? '#B8956A' : 'rgba(151,145,137,0.15)',
+              }}
+              onPress={handleRefine}
+              disabled={!refineText.trim() || refining}
+            >
+              <Text style={{ color: refineText.trim() && !refining ? '#0F0E0C' : 'rgba(151,145,137,0.4)', fontSize: 14, fontWeight: '600' }}>
+                {refining ? '生成中...' : '再生成'}
+              </Text>
+            </Pressable>
+          </View>
+        </KeyboardAvoidingView>
       </View>
     );
   }

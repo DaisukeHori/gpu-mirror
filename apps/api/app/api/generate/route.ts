@@ -74,7 +74,7 @@ export async function POST(request: NextRequest) {
       { status: 400 },
     );
   }
-  const { session_id, styles, angles: requestedAngles } = parsed.data;
+  const { session_id, styles, angles: requestedAngles, custom_instruction } = parsed.data;
 
   const { data: session } = await supabaseAdmin
     .from('sessions')
@@ -215,6 +215,7 @@ export async function POST(request: NextRequest) {
               angle: task.angle,
               colorName: cached.colorName,
               colorHex: cached.colorHex,
+              customInstruction: custom_instruction,
             });
 
             const result = await withTimeout(

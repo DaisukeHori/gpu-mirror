@@ -7,6 +7,7 @@ export interface PromptParams {
   colorName?: string;
   colorHex?: string;
   colorDescription?: string;
+  customInstruction?: string;
 }
 
 export const buildPrompt = (params: PromptParams): string => {
@@ -29,10 +30,14 @@ export const buildPrompt = (params: PromptParams): string => {
       break;
   }
 
+  const customPart = params.customInstruction
+    ? `\n\nAdditional styling instruction from the customer:\n"${params.customInstruction}"`
+    : '';
+
   return `${base}
 
 ${angleInst}
-
+${customPart}
 Rules:
 - Keep the person's face, identity, skin tone, and facial expression EXACTLY the same.
 - The result must look like a natural photograph taken in a beauty salon.
