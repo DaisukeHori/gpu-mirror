@@ -211,6 +211,8 @@ export function useGenerate() {
         void pollUntilDone(sessionId, controller.signal);
       };
 
+      setTimeout(() => ensurePolling(), 5000);
+
       await apiSSE(
         '/api/generate',
         { session_id: sessionId, styles, angles, custom_instruction: customInstruction },
