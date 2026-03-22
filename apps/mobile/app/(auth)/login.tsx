@@ -15,6 +15,19 @@ import {
 
 WebBrowser.maybeCompleteAuthSession();
 
+function formatSsoLoginError(message: string): string {
+  if (/SAML 2\.0 is disabled/i.test(message)) {
+    return [
+      message,
+      '',
+      '接続している Supabase プロジェクトで SAML / SSO がまだ有効になっていない可能性があります。',
+      'ダッシュボード → Authentication → SSO / SAML で有効化し、Entra ID のメタデータを登録してください（README の Azure AD 手順）。',
+      '別プロジェクトの URL・anon キーを .env に入れていないかも確認してください。',
+    ].join('\n');
+  }
+  return message;
+}
+
 export default function LoginScreen() {
   const [loading, setLoading] = useState(false);
   const theme = useAppTheme();
@@ -36,7 +49,8 @@ export default function LoginScreen() {
     void createSessionFromUrl(currentUrl)
       .catch((err) => {
         if (active) {
-          Alert.alert('ログインエラー', err instanceof Error ? err.message : 'サインインに失敗しました');
+          const msg = err instanceof Error ? err.message : 'サインインに失敗しました';
+          Alert.alert('ログインエラー', formatSsoLoginError(msg));
         }
       })
       .finally(() => {
@@ -58,7 +72,7 @@ export default function LoginScreen() {
       const { data, error } = await supabase.auth.signInWithSSO(buildSsoSignInParams(redirectUri));
 
       if (error) {
-        Alert.alert('ログインエラー', error.message);
+        Alert.alert('ログインエラー', formatSsoLoginError(error.message));
         return;
       }
 
@@ -82,7 +96,8 @@ export default function LoginScreen() {
 
       Alert.alert('ログインエラー', 'SSO の遷移先 URL を取得できませんでした');
     } catch (err) {
-      Alert.alert('ログインエラー', err instanceof Error ? err.message : '不明なエラーが発生しました');
+      const msg = err instanceof Error ? err.message : '不明なエラーが発生しました';
+      Alert.alert('ログインエラー', formatSsoLoginError(msg));
     } finally {
       setLoading(false);
     }
