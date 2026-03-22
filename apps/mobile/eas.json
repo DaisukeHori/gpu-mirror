@@ -18,6 +18,7 @@
       }
     },
     "internal": {
+      "environment": "production",
       "developmentClient": false,
       "distribution": "internal",
       "ios": {
@@ -33,6 +34,7 @@
       }
     },
     "production": {
+      "environment": "production",
       "developmentClient": false,
       "ios": {
         "buildConfiguration": "Release"
