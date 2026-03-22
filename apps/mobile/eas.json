@@ -8,6 +8,7 @@
       "distribution": "internal"
     },
     "preview": {
+      "developmentClient": false,
       "distribution": "internal",
       "ios": {
         "simulator": true
@@ -16,12 +17,32 @@
         "buildType": "apk"
       }
     },
+    "internal": {
+      "developmentClient": false,
+      "distribution": "internal",
+      "ios": {
+        "simulator": false,
+        "buildConfiguration": "Release"
+      },
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_API_BASE_URL": "https://revol-mirror-api.vercel.app",
+        "EXPO_PUBLIC_SSO_DOMAIN": "revol.co.jp"
+      }
+    },
     "production": {
+      "developmentClient": false,
       "ios": {
         "buildConfiguration": "Release"
       },
       "android": {
         "buildType": "app-bundle"
+      },
+      "env": {
+        "EXPO_PUBLIC_API_BASE_URL": "https://revol-mirror-api.vercel.app",
+        "EXPO_PUBLIC_SSO_DOMAIN": "revol.co.jp"
       }
     }
   },

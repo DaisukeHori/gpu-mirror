@@ -322,20 +322,62 @@ cd apps/mobile && npx tsc --noEmit
 
 ## iOS ビルド
 
-### シミュレーター用
+### Mac なしで実機だけ使う（本番バックエンド・Metro 不要）
+
+`npx expo run:ios` や **development** プロファイルの EAS ビルドは **開発用**で、起動時に Mac 上の Metro（パッケージャ）へ接続します。**JS をアプリに同梱する Release ビルド**にすると、iPad 単体で起動し、API はビルド時に埋め込んだ `EXPO_PUBLIC_*` から本番（Vercel 等）へ向きます。
+
+1. **EAS にログイン**（初回のみ）
+
+   ```bash
+   npm install -g eas-cli
+   eas login
+   cd apps/mobile
+   eas init
+   ```
+
+   `eas init` で `app.json` に `extra.eas.projectId` が付与されます。
+
+2. **ビルド時に必要な秘密情報**（Supabase など）はリポジトリに書かず、**EAS の環境変数**に登録します（[Expo の Environment variables](https://docs.expo.dev/eas/environment-variables/) または CLI）。
+
+   最低限:
+
+   - `EXPO_PUBLIC_SUPABASE_URL`
+   - `EXPO_PUBLIC_SUPABASE_ANON_KEY`
+   - （使う場合）`EXPO_PUBLIC_SSO_PROVIDER_ID`
+
+   `EXPO_PUBLIC_API_BASE_URL` と `EXPO_PUBLIC_SSO_DOMAIN` は **`eas.json` の `internal` / `production` プロファイル**に既定で入れています。上書きしたい場合は EAS 側の変数で差し替え可能です。
+
+3. **実機向けスタンドアロン IPA（内部配布）**
+
+   ```bash
+   cd apps/mobile
+   eas build --platform ios --profile internal
+   ```
+
+   完了後、EAS のダウンロードリンクから iPad にインストール（登録済みデバイスが必要）。**Mac を起動したままにする必要はありません。**
+
+4. **App Store / TestFlight（本番配布）**
+
+   ```bash
+   eas build --platform ios --profile production
+   eas submit --platform ios
+   ```
+
+### シミュレーター用（開発・Mac 必須）
 
 ```bash
 cd apps/mobile
+npx expo start --dev-client --clear
+# 別ターミナル
 npx expo run:ios --device "iPad Pro 11-inch (M4)"
 ```
 
-### 実機配布 (EAS Build)
+### 実機 USB 開発（Metro あり・Mac 必須）
 
 ```bash
-npm install -g eas-cli
-eas login
-eas build --platform ios --profile production
-eas submit --platform ios
+cd apps/mobile
+npx expo start --dev-client --clear
+npx expo run:ios --device
 ```
 
 ---
