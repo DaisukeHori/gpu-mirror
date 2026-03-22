@@ -13,6 +13,9 @@
     "type-check": "turbo run type-check",
     "clean": "turbo run clean"
   },
+  "dependencies": {
+    "react-native-worklets": "0.7.4"
+  },
   "devDependencies": {
     "prettier": "^3.5.0",
     "react-test-renderer": "^19.2.3",
@@ -21,5 +24,11 @@
   "engines": {
     "node": ">=20"
   },
-  "packageManager": "npm@10.8.0"
+  "packageManager": "npm@10.8.0",
+  "overrides": {
+    "react-native-reanimated": {
+      "react-native-worklets": "0.7.4"
+    },
+    "react-native-worklets": "0.7.4"
+  }
 }
