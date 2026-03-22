@@ -129,8 +129,10 @@ npm install
 
 #### API (`apps/api/.env.local`)
 
+`NEXT_PUBLIC_SUPABASE_URL` はモバイルの `EXPO_PUBLIC_SUPABASE_URL` と **同じ本番 ref**（`biwcwjcylmvkyglsyjcs`）に揃えます（Vercel の環境変数も含む）。
+
 ```env
-SUPABASE_URL=https://xxxxx.supabase.co
+NEXT_PUBLIC_SUPABASE_URL=https://biwcwjcylmvkyglsyjcs.supabase.co
 SUPABASE_SERVICE_ROLE_KEY=eyJhbGci...
 GEMINI_API_KEY=AIza...
 GEMINI_MODEL=gemini-3.1-flash-image-preview
@@ -141,12 +143,14 @@ IMAGE_MAX_SIZE_MB=10
 
 #### モバイル (`apps/mobile/.env`)
 
+本番 **revol-mirror** の ref は **`biwcwjcylmvkyglsyjcs`**。URL のホストがこれと一致しているか必ず確認してください。
+
 ```env
-EXPO_PUBLIC_SUPABASE_URL=https://xxxxx.supabase.co
+EXPO_PUBLIC_SUPABASE_URL=https://biwcwjcylmvkyglsyjcs.supabase.co
 EXPO_PUBLIC_SUPABASE_ANON_KEY=eyJhbGci...
 EXPO_PUBLIC_API_BASE_URL=https://revol-mirror-api.vercel.app
 EXPO_PUBLIC_SSO_DOMAIN=revol.co.jp
-EXPO_PUBLIC_SSO_PROVIDER_ID=00000000-0000-0000-0000-000000000000
+# 任意: EXPO_PUBLIC_SSO_PROVIDER_ID=<supabase sso list の ID>
 ```
 
 ### 3. Supabase セットアップ
@@ -205,7 +209,44 @@ npx expo run:android
 
 ## Azure AD (Entra ID) SAML SSO 設定
 
-### ステップ 1: Supabase で SSO プロバイダーを追加
+### 本番 Supabase プロジェクト（ここを誤ると SAML が効かない）
+
+CLI で `supabase projects list` とったとき **名前が `revol-mirror` で ● が付く行**の ref が本番です（現状 **`biwcwjcylmvkyglsyjcs`**）。**別 ref の `EXPO_PUBLIC_SUPABASE_URL` / anon を `.env` や EAS に入れると**、ダッシュボードで SAML を有効にしていても **IdP が 0 件のプロジェクト**に繋がり、`SAML 2.0 is disabled` などになります。モバイル・API・EAS の Supabase は **すべてこの ref に揃える**こと。
+
+### Supabase Auth のリダイレクト URL
+
+**Authentication → URL Configuration → Redirect URLs** に、SSO 完了後の戻り先を追加します。
+
+- **ネイティブ（Expo）**: `revol-mirror://login-callback`（`app.json` の scheme と `lib/sso.ts` の `makeRedirectUri` に一致）
+- **Web 同梱**（`expo start --web` 等）: 実際のオリジンに合わせて `https://<ホスト>/login` を追加
+
+### ステップ 1: Azure Entra ID でエンタープライズアプリ設定
+
+1. **Azure Portal** → **Entra ID** → **エンタープライズ アプリケーション** → **新しいアプリケーション** → **独自のアプリケーションの作成**
+2. アプリ名: `REVOL Mirror`
+3. **シングル サインオン** → **SAML**
+
+### ステップ 2: SAML 構成（SP = Supabase）
+
+`<SUPABASE_PROJECT_REF>` には **上記の本番 ref**（例: `biwcwjcylmvkyglsyjcs`）を入れます。
+
+| 設定項目 | 値 |
+|----------|-----|
+| 識別子 (Entity ID) | `https://<SUPABASE_PROJECT_REF>.supabase.co/auth/v1/sso/saml/metadata` |
+| 応答 URL (ACS URL) | `https://<SUPABASE_PROJECT_REF>.supabase.co/auth/v1/sso/saml/acs` |
+| サインオン URL | `https://revol-mirror-admin.vercel.app/login`（運用に合わせて変更可） |
+| 名前 ID 形式 | `emailAddress` |
+
+### ステップ 3: 属性とクレーム
+
+| クレーム名 | ソース属性 |
+|-----------|-----------|
+| `emailaddress` | `user.mail` |
+| `name` | `user.displayname` |
+
+### ステップ 4: Supabase に IdP を登録（新規のとき）
+
+Entra の SAML 画面に表示される **フェデレーション メタデータ URL**（または `https://login.microsoftonline.com/<TENANT_ID>/federationmetadata/2007-06/federationmetadata.xml?appid=<APP_ID>` 等）を控え、CLI で登録します。
 
 ```bash
 supabase sso add \
@@ -215,29 +256,7 @@ supabase sso add \
   --project-ref <SUPABASE_PROJECT_REF>
 ```
 
-レスポンスの `id` が SSO Provider ID になります。これを `EXPO_PUBLIC_SSO_PROVIDER_ID` に設定。
-
-### ステップ 2: Azure Entra ID でエンタープライズアプリ設定
-
-1. **Azure Portal** → **Entra ID** → **エンタープライズ アプリケーション** → **新しいアプリケーション** → **独自のアプリケーションの作成**
-2. アプリ名: `REVOL Mirror`
-3. **シングル サインオン** → **SAML**
-
-### ステップ 3: SAML 構成
-
-| 設定項目 | 値 |
-|----------|-----|
-| 識別子 (Entity ID) | `https://<SUPABASE_PROJECT_REF>.supabase.co/auth/v1/sso/saml/metadata` |
-| 応答 URL (ACS URL) | `https://<SUPABASE_PROJECT_REF>.supabase.co/auth/v1/sso/saml/acs` |
-| サインオン URL | `https://revol-mirror-admin.vercel.app/login` |
-| 名前 ID 形式 | `emailAddress` |
-
-### ステップ 4: 属性とクレーム
-
-| クレーム名 | ソース属性 |
-|-----------|-----------|
-| `emailaddress` | `user.mail` |
-| `name` | `user.displayname` |
+レスポンスの `id` が SSO Provider ID。任意で `EXPO_PUBLIC_SSO_PROVIDER_ID` に設定（未設定なら `EXPO_PUBLIC_SSO_DOMAIN` で解決）。
 
 ### ステップ 5: ユーザー割り当て
 
@@ -252,7 +271,7 @@ supabase sso info <PROVIDER_ID> --project-ref <SUPABASE_PROJECT_REF>
 
 ### ステップ 7: アプリ側の認証フロー
 
-アプリは `supabase.auth.signInWithSSO({ domain: 'revol.co.jp' })` でログインを開始します。Azure AD にリダイレクトされ、認証後にアプリに戻ります。
+アプリは `signInWithSSO` で `domain: 'revol.co.jp'`（または Provider ID）を渡します。Azure AD にリダイレクトされ、認証後に上記 **Redirect URLs** へ戻ります。
 
 ---
 
