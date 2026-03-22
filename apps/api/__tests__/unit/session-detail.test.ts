@@ -28,7 +28,14 @@ vi.mock('../../lib/supabase-admin', () => ({
       }),
     })),
     storage: {
-      from: vi.fn().mockReturnValue({ createSignedUrl: mockSignedUrl }),
+      from: vi.fn().mockReturnValue({
+        createSignedUrl: mockSignedUrl,
+        createSignedUrls: vi.fn().mockImplementation((paths: string[], expiresIn: number) =>
+          Promise.resolve({
+            data: paths.map((p: string) => ({ path: p, signedUrl: `https://test.supabase.co/signed/${p}` })),
+          }),
+        ),
+      }),
     },
     auth: { getUser: vi.fn() },
   },
@@ -154,5 +161,34 @@ describe('PATCH /api/sessions/[id]', () => {
     });
     const res = await PATCH(req, { params: Promise.resolve({ id: 'sess-1' }) });
     expect(res.status).toBe(404);
+  });
+
+  it('returns 403 when user does not own session', async () => {
+    mockCheckSingle.mockResolvedValue({ data: { staff_id: 'other-staff' }, error: null });
+
+    const req = createRequest('/api/sessions/sess-1', {
+      method: 'PATCH',
+      body: { is_closed: true },
+    });
+    const res = await PATCH(req, { params: Promise.resolve({ id: 'sess-1' }) });
+    expect(res.status).toBe(403);
+  });
+
+  it('sets closed_at to null when reopening a session', async () => {
+    mockPatchSingle.mockResolvedValue({
+      data: { id: 'sess-1', is_closed: false, closed_at: null },
+      error: null,
+    });
+
+    const req = createRequest('/api/sessions/sess-1', {
+      method: 'PATCH',
+      body: { is_closed: false },
+    });
+    const res = await PATCH(req, { params: Promise.resolve({ id: 'sess-1' }) });
+    const { status, body } = await parseResponse(res);
+
+    expect(status).toBe(200);
+    expect(body.session.is_closed).toBe(false);
+    expect(body.session.closed_at).toBeNull();
   });
 });

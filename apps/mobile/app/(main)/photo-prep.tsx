@@ -1,5 +1,6 @@
 import { Pressable, Text, View, Image as RNImage, useWindowDimensions } from 'react-native';
 import { router } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getBrowserHistoryLength } from '../../lib/browser';
 import { HapticButton } from '../../components/common/HapticButton';
 import { useAppTheme } from '../../lib/theme-provider';
@@ -23,6 +24,7 @@ const PREP_POINTS = [
 
 export default function PhotoPrepScreen() {
   const theme = useAppTheme();
+  const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const imgWidth = width - 48;
   const imgHeight = imgWidth * 0.56;
@@ -37,7 +39,7 @@ export default function PhotoPrepScreen() {
   };
 
   return (
-    <View style={{ flex: 1, backgroundColor: theme.colors.bg, paddingHorizontal: 24, paddingTop: 60, paddingBottom: 40 }}>
+    <View style={{ flex: 1, backgroundColor: theme.colors.background, paddingHorizontal: 24, paddingTop: insets.top + 12, paddingBottom: 40 }}>
       <Pressable onPress={handleBack} style={{ paddingVertical: 8, alignSelf: 'flex-start', marginBottom: 24 }}>
         <Text style={{ color: theme.colors.muted, fontSize: 14 }}>戻る</Text>
       </Pressable>

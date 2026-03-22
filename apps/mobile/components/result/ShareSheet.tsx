@@ -1,6 +1,6 @@
 import { View, Text, Pressable, Modal, Alert, Linking, Platform } from 'react-native';
 import * as Sharing from 'expo-sharing';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import { useState } from 'react';
 import type { Generation } from '../../lib/types';
 import { impactLight } from '../../lib/haptics';
@@ -38,14 +38,24 @@ export function ShareSheet({ visible, onClose, generations }: ShareSheetProps) {
           await Linking.openURL(target.photo_url);
         }
       } else {
-        const localFile = await FileSystem.File.downloadFileAsync(
-          target.photo_url,
-          new FileSystem.File(FileSystem.Paths.cache, `share_${target.id}_${Date.now()}.jpg`),
-        );
+        let shareUri = target.photo_url;
+
+        if (!shareUri.startsWith('file://')) {
+          const cacheDir = FileSystem.cacheDirectory;
+          if (!cacheDir) {
+            Alert.alert('共有に失敗しました');
+            return;
+          }
+          const result = await FileSystem.downloadAsync(
+            shareUri,
+            `${cacheDir}share_${target.id}_${Date.now()}.jpg`,
+          );
+          shareUri = result.uri;
+        }
 
         const isAvailable = await Sharing.isAvailableAsync();
         if (isAvailable) {
-          await Sharing.shareAsync(localFile.uri, {
+          await Sharing.shareAsync(shareUri, {
             mimeType: 'image/jpeg',
             dialogTitle: 'REVOL Mirror — スタイルシミュレーション',
           });

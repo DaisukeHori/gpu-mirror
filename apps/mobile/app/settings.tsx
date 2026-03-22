@@ -72,7 +72,7 @@ export default function SettingsScreen() {
             ))}
           </View>
           <Text className="text-text-muted text-xs mt-3 leading-5">
-            iPad運用ではダーク、Web管理画面ではライトを基本にしています。
+            モバイル運用ではダーク、Web管理画面ではライトを基本にしています。
           </Text>
         </View>
 
@@ -94,7 +94,7 @@ export default function SettingsScreen() {
           <Text className="text-text-primary text-sm font-medium mb-1">アプリ情報</Text>
           <Text className="text-text-secondary text-xs mt-2">Version 1.0.0</Text>
           <Text className="text-text-muted text-xs mt-1">
-            Expo Web / iPad flow / Admin log viewer 対応
+            Expo Web / iOS・Android flow / Admin log viewer 対応
           </Text>
         </View>
 

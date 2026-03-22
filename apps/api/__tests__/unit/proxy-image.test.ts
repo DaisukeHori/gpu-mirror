@@ -18,7 +18,18 @@ vi.mock('../../lib/supabase-admin', () => ({
         createSignedUrl: mockSignedUrl,
       }),
     },
-    from: vi.fn(),
+    from: vi.fn().mockImplementation((table: string) => {
+      if (table === 'sessions') {
+        return {
+          select: vi.fn().mockReturnValue({
+            eq: vi.fn().mockReturnValue({
+              single: vi.fn().mockResolvedValue({ data: { staff_id: 'staff-1' }, error: null }),
+            }),
+          }),
+        };
+      }
+      return {};
+    }),
     auth: { getUser: vi.fn() },
   },
   getSupabaseAdmin: vi.fn(),
@@ -152,5 +163,24 @@ describe('POST /api/proxy-image', () => {
 
     const res = await POST(req);
     expect(res.status).toBe(413);
+  });
+
+  it('returns 403 when user does not own the session', async () => {
+    const { supabaseAdmin } = await import('../../lib/supabase-admin');
+    vi.mocked(supabaseAdmin.from).mockImplementationOnce(() => ({
+      select: vi.fn().mockReturnValue({
+        eq: vi.fn().mockReturnValue({
+          single: vi.fn().mockResolvedValue({ data: { staff_id: 'other-staff' }, error: null }),
+        }),
+      }),
+    } as any));
+
+    const req = createRequest('/api/proxy-image', {
+      method: 'POST',
+      body: { url: 'https://i.pinimg.com/originals/abc.jpg', session_id: '550e8400-e29b-41d4-a716-446655440000' },
+    });
+
+    const res = await POST(req);
+    expect(res.status).toBe(403);
   });
 });

@@ -105,6 +105,8 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     update.is_closed = parsed.data.is_closed;
     if (parsed.data.is_closed) {
       update.closed_at = new Date().toISOString();
+    } else {
+      update.closed_at = null;
     }
   }
   if (parsed.data.customer_photo_path) {

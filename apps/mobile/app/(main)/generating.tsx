@@ -10,6 +10,7 @@ import Animated, {
   Easing,
 } from 'react-native-reanimated';
 import { router, useLocalSearchParams } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useGenerate } from '../../hooks/useGenerate';
 import { ExitButton } from '../../components/common/ExitButton';
 import { useCloseSession } from '../../hooks/useCloseSession';
@@ -96,6 +97,7 @@ export default function GeneratingScreen() {
     return stored.map((s) => s.thumbnailUrl || s.localThumbnailUri || s.sourceUrl || '');
   }, [params.sessionId]);
   const closeSession = useCloseSession(params.sessionId);
+  const insets = useSafeAreaInsets();
   const { results, progress, isGenerating, isComplete, startGeneration, reset } = useGenerate();
 
 
@@ -151,7 +153,7 @@ export default function GeneratingScreen() {
 
   return (
     <View className="flex-1 bg-bg">
-      <View className="flex-row items-center justify-end px-5 pt-16 pb-3">
+      <View className="flex-row items-center justify-end px-5 pb-3" style={{ paddingTop: insets.top + 12 }}>
         <ExitButton onConfirm={closeSession} />
       </View>
 

@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { useState as useStateRN } from 'react';
-import { View, Pressable, Text, Dimensions, Image as RNImage, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, Pressable, Text, Image as RNImage, StyleSheet, ActivityIndicator, useWindowDimensions } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
   useSharedValue,
@@ -16,12 +16,13 @@ interface FullscreenViewerProps {
   onClose: () => void;
 }
 
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const timing = { duration: 200, easing: Easing.out(Easing.quad) };
 
 export function FullscreenViewer({ imageUrl, beforeImageUrl, onClose }: FullscreenViewerProps) {
+  const { width: screenWidth, height: screenHeight } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
   const [showBefore, setShowBefore] = useState(false);
-  const [loading, setLoading] = useStateRN(true);
+  const [loading, setLoading] = useState(true);
   const scale = useSharedValue(1);
   const translateX = useSharedValue(0);
   const translateY = useSharedValue(0);
@@ -66,7 +67,7 @@ export function FullscreenViewer({ imageUrl, beforeImageUrl, onClose }: Fullscre
         setShowBefore(true);
       }
     })
-    .onEnd(() => {
+    .onFinalize(() => {
       setShowBefore(false);
     });
 
@@ -93,7 +94,7 @@ export function FullscreenViewer({ imageUrl, beforeImageUrl, onClose }: Fullscre
           <Animated.View style={[{ flex: 1 }, animatedStyle]}>
             <RNImage
               source={{ uri: displayUrl, cache: 'force-cache' }}
-              style={{ width: SCREEN_WIDTH, height: SCREEN_HEIGHT }}
+              style={{ width: screenWidth, height: screenHeight }}
               resizeMode="contain"
               onLoadStart={() => setLoading(true)}
               onLoad={() => setLoading(false)}
@@ -107,7 +108,7 @@ export function FullscreenViewer({ imageUrl, beforeImageUrl, onClose }: Fullscre
           </Animated.View>
         </GestureDetector>
 
-        <View style={{ position: 'absolute', top: 60, left: 24, flexDirection: 'row', gap: 12 }}>
+        <View style={{ position: 'absolute', top: insets.top + 12, left: 24, flexDirection: 'row', gap: 12 }}>
           {beforeImageUrl && (
             <Pressable
               style={{ backgroundColor: 'rgba(30,28,26,0.8)', paddingHorizontal: 20, paddingVertical: 10, borderRadius: 999 }}
@@ -121,7 +122,7 @@ export function FullscreenViewer({ imageUrl, beforeImageUrl, onClose }: Fullscre
         </View>
 
         <Pressable
-          style={{ position: 'absolute', top: 60, right: 24, backgroundColor: 'rgba(30,28,26,0.8)', paddingHorizontal: 20, paddingVertical: 10, borderRadius: 999 }}
+          style={{ position: 'absolute', top: insets.top + 12, right: 24, backgroundColor: 'rgba(30,28,26,0.8)', paddingHorizontal: 20, paddingVertical: 10, borderRadius: 999 }}
           onPress={onClose}
         >
           <Text style={{ color: '#E8E0D8', fontSize: 13 }}>閉じる</Text>

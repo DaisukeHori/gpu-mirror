@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { View, Text, Pressable, Platform } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { SelectedStyle } from '../../lib/types';
 import { ExitButton } from '../../components/common/ExitButton';
 import { useCloseSession } from '../../hooks/useCloseSession';
@@ -33,6 +34,7 @@ export default function ExploreScreen() {
     customerPhotoUrl: string;
   }>();
   const closeSession = useCloseSession(sessionId);
+  const insets = useSafeAreaInsets();
   const [activeTab, setActiveTab] = useState<TabKey>(Platform.OS === 'web' ? 'catalog' : 'pinterest');
   const [selectedStyles, setSelectedStyles] = useState<SelectedStyle[]>([]);
   const [hasHydratedSelection, setHasHydratedSelection] = useState(false);
@@ -84,7 +86,7 @@ export default function ExploreScreen() {
   return (
     <View className="flex-1 bg-bg">
       {/* Header */}
-      <View className="flex-row items-center justify-between px-5 pt-16 pb-4">
+      <View className="flex-row items-center justify-between px-5 pb-4" style={{ paddingTop: insets.top + 12 }}>
         <Pressable className="py-2 pr-4" onPress={() => router.back()}>
           <Text className="text-text-muted text-sm tracking-wide">戻る</Text>
         </Pressable>

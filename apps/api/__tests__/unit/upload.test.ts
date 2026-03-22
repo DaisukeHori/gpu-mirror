@@ -18,7 +18,18 @@ vi.mock('../../lib/supabase-admin', () => ({
         createSignedUrl: mockSignedUrl,
       }),
     },
-    from: vi.fn(),
+    from: vi.fn().mockImplementation((table: string) => {
+      if (table === 'sessions') {
+        return {
+          select: vi.fn().mockReturnValue({
+            eq: vi.fn().mockReturnValue({
+              single: vi.fn().mockResolvedValue({ data: { staff_id: 'staff-1' }, error: null }),
+            }),
+          }),
+        };
+      }
+      return {};
+    }),
     auth: { getUser: vi.fn() },
   },
   getSupabaseAdmin: vi.fn(),
@@ -133,5 +144,39 @@ describe('POST /api/upload', () => {
 
     expect(res.status).toBe(500);
     expect(body.message).toContain('unsupported image format');
+  });
+
+  it('returns 403 when user does not own the session', async () => {
+    const { supabaseAdmin } = await import('../../lib/supabase-admin');
+    vi.mocked(supabaseAdmin.from).mockImplementationOnce(() => ({
+      select: vi.fn().mockReturnValue({
+        eq: vi.fn().mockReturnValue({
+          single: vi.fn().mockResolvedValue({ data: { staff_id: 'other-staff' }, error: null }),
+        }),
+      }),
+    } as any));
+
+    const file = new Blob(['data'], { type: 'image/jpeg' });
+    const req = createFormDataRequest({ file, session_id: 'sess-1' });
+
+    const res = await POST(req);
+    expect(res.status).toBe(403);
+  });
+
+  it('returns 404 when session does not exist', async () => {
+    const { supabaseAdmin } = await import('../../lib/supabase-admin');
+    vi.mocked(supabaseAdmin.from).mockImplementationOnce(() => ({
+      select: vi.fn().mockReturnValue({
+        eq: vi.fn().mockReturnValue({
+          single: vi.fn().mockResolvedValue({ data: null, error: null }),
+        }),
+      }),
+    } as any));
+
+    const file = new Blob(['data'], { type: 'image/jpeg' });
+    const req = createFormDataRequest({ file, session_id: 'nonexistent' });
+
+    const res = await POST(req);
+    expect(res.status).toBe(404);
   });
 });

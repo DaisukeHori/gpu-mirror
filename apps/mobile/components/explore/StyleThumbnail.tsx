@@ -48,7 +48,7 @@ export function StyleThumbnail({
     width: size,
     height: size,
     borderRadius: 8,
-    ...style,
+    ...(style as ImageStyle),
   };
 
   if (!uri) {

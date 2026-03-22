@@ -1,6 +1,6 @@
 # REVOL Mirror
 
-美容室カウンセリング向け AI ヘアスタイルシミュレーションアプリ。お客さまの顔写真に Pinterest / カタログ / アップロード画像のヘアスタイルを合成し、5アングル（正面・斜め・横・後ろ・映え）の比較画像を生成する iPad ネイティブアプリ。
+美容室カウンセリング向け AI ヘアスタイルシミュレーションアプリ。お客さまの顔写真に Pinterest / カタログ / アップロード画像のヘアスタイルを合成し、5アングル（正面・斜め・横・後ろ・映え）の比較画像を生成する iOS / Android アプリ。
 
 ---
 
@@ -31,10 +31,11 @@
 ```
 revol-mirror/
 ├── apps/
-│   ├── mobile/          # iPad アプリ (Expo + React Native)
+│   ├── mobile/          # iOS / Android アプリ (Expo + React Native)
 │   │   ├── app/         # Expo Router ページ
 │   │   │   ├── (auth)/  # ログイン画面
-│   │   │   └── (main)/  # メイン画面群
+│   │   │   ├── (main)/  # メイン画面群 + (admin)/ 管理画面
+│   │   │   └── settings.tsx  # テーマ・管理者メニュー
 │   │   ├── components/  # UI コンポーネント
 │   │   ├── hooks/       # カスタムフック
 │   │   ├── lib/         # ユーティリティ
@@ -42,9 +43,12 @@ revol-mirror/
 │   └── api/             # BFF API (Next.js)
 │       ├── app/api/     # API ルート
 │       │   ├── generate/    # AI 生成 (SSE)
-│       │   ├── sessions/    # セッション CRUD
+│       │   ├── sessions/    # セッション CRUD + 生成リトライ
 │       │   ├── upload/      # 画像アップロード
-│       │   └── colors/      # カラーマスター
+│       │   ├── proxy-image/ # Pinterest 画像プロキシ
+│       │   ├── catalog/     # カタログ CRUD
+│       │   ├── colors/      # カラーマスター
+│       │   └── health/      # ヘルスチェック
 │       └── lib/         # サーバーユーティリティ
 │           ├── ai-providers/  # Gemini プロバイダー
 │           └── auth.ts        # JWT 認証
@@ -60,9 +64,11 @@ revol-mirror/
 ## 画面フロー
 
 ```
-ログイン (Azure AD SAML)
+ログイン (Azure AD SAML SSO)
   ↓
 ホーム画面
+  ↓
+利用規約・プライバシーポリシー (最後までスクロール + 同意)
   ↓
 写真の準備 (撮影ガイド表示)
   ↓
@@ -166,6 +172,13 @@ npx expo start --dev-client --clear
 
 # iPad シミュレーターで実行
 npx expo run:ios --device "iPad Pro 11-inch (M4)"
+
+# Android エミュレーターで実行
+npx expo run:android
+
+# Android 実機で実行（ローカル API に接続する場合）
+adb reverse tcp:3000 tcp:3000
+npx expo run:android
 ```
 
 ### 5. Vercel デプロイ
@@ -263,15 +276,20 @@ supabase sso info <PROVIDER_ID> --project-ref <SUPABASE_PROJECT_REF>
 
 | メソッド | パス | 説明 | 認証 |
 |----------|------|------|------|
+| GET | `/api/health` | ヘルスチェック | 不要 |
 | POST | `/api/sessions` | セッション作成 | 必須 |
+| GET | `/api/sessions` | セッション一覧 (ページネーション) | 必須 |
 | GET | `/api/sessions/:id` | セッション詳細 + 生成画像 | 必須 |
-| PATCH | `/api/sessions/:id` | セッション更新 | 必須 |
-| DELETE | `/api/sessions/:id` | セッション削除 | 管理者 |
+| PATCH | `/api/sessions/:id` | セッション更新 (クローズ等) | 必須 |
 | POST | `/api/upload` | 画像アップロード | 必須 |
+| POST | `/api/proxy-image` | Pinterest 画像プロキシ | 必須 |
 | POST | `/api/generate` | AI 生成開始 (SSE) | 必須 |
 | GET | `/api/colors` | カラーマスター | 必須 |
-| GET | `/api/user` | ログインユーザー情報 | 必須 |
-| GET | `/api/staffs` | スタッフ一覧 | 管理者 |
+| GET | `/api/catalog` | カタログ一覧 | 必須 |
+| POST | `/api/catalog` | カタログ追加 | 管理者 |
+| GET | `/api/catalog/:id` | カタログ詳細 | 必須 |
+| PATCH | `/api/catalog/:id` | カタログ更新 | 管理者 |
+| DELETE | `/api/catalog/:id` | カタログ論理削除 | 管理者 |
 | PATCH | `/api/sessions/:id/generations/:genId` | お気に入り更新 | 必須 |
 | POST | `/api/sessions/:id/generations/:genId/retry` | 生成リトライ | 必須 |
 
@@ -310,6 +328,44 @@ eas login
 eas build --platform ios --profile production
 eas submit --platform ios
 ```
+
+---
+
+## Android ビルド
+
+### エミュレーター / 実機（ローカル）
+
+```bash
+cd apps/mobile
+npx expo run:android
+```
+
+Android 実機でローカル API に接続する場合は、事前に `adb reverse tcp:3000 tcp:3000` を実行してください。
+
+### EAS Build（内部テスト配布）
+
+```bash
+npm install -g eas-cli
+eas login
+eas build --platform android --profile preview
+```
+
+`preview` プロファイルは APK を生成します。チームメンバーへの直接配布に適しています。
+
+### EAS Build（本番 / Play Store 配布）
+
+```bash
+eas build --platform android --profile production
+eas submit --platform android
+```
+
+初回の Google Play 提出前に以下が必要です:
+
+1. Google Play Console でアプリを作成
+2. サービスアカウント JSON を取得し `apps/mobile/google-play-service-account.json` に配置
+3. `eas init` で EAS プロジェクトを紐付け（`extra.eas.projectId` が `app.json` に追加される）
+
+環境変数（`EXPO_PUBLIC_*`）は iOS と共通です。
 
 ---
 

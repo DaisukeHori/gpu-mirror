@@ -1,13 +1,15 @@
 import '../global.css';
 import { useEffect, useState } from 'react';
-import { LogBox } from 'react-native';
+import { LogBox, Platform } from 'react-native';
 import { Stack, useRouter, useSegments } from 'expo-router';
+import * as Linking from 'expo-linking';
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { supabase } from '../lib/supabase';
 import type { Session } from '@supabase/supabase-js';
 import { AppThemeProvider, useAppTheme } from '../lib/theme-provider';
+import { hasAuthCallbackParams, createSessionFromUrl } from '../lib/sso';
 
 LogBox.ignoreLogs([
   'Barcode scanning has been disabled',
@@ -32,6 +34,28 @@ function RootLayoutInner() {
     });
 
     return () => subscription.unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    if (Platform.OS === 'web') return;
+
+    const handleDeepLink = async (url: string) => {
+      if (!hasAuthCallbackParams(url)) return;
+      try {
+        await createSessionFromUrl(url);
+      } catch {
+        // login.tsx handles error display for normal flow
+      }
+    };
+
+    Linking.getInitialURL()
+      .then((url) => {
+        if (url) handleDeepLink(url);
+      })
+      .catch(() => {});
+
+    const sub = Linking.addEventListener('url', (event) => handleDeepLink(event.url));
+    return () => sub.remove();
   }, []);
 
   useEffect(() => {

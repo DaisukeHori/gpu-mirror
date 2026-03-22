@@ -1,10 +1,14 @@
 import * as FileSystem from 'expo-file-system/legacy';
 import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
+import { Platform } from 'react-native';
 
 const PINTEREST_DOWNLOAD_HEADERS = {
   Accept: 'image/*,*/*;q=0.8',
   Referer: 'https://www.pinterest.com/',
-  'User-Agent': 'Mozilla/5.0 (iPad; CPU OS 17_0 like Mac OS X)',
+  'User-Agent':
+    Platform.OS === 'android'
+      ? 'Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Mobile Safari/537.36'
+      : 'Mozilla/5.0 (iPad; CPU OS 17_0 like Mac OS X)',
 };
 
 function buildCacheFileName(prefix: string) {

@@ -105,12 +105,14 @@ export async function POST(request: NextRequest) {
 
   // Pre-fetch reference photos and color data once per style (not per angle), in parallel
   const styleDataCache = new Map<number, PreparedStyle>();
+  const failedStyleIndices = new Set<number>();
   const prepared = await Promise.all(
     styles.map(async (style, i) => {
       try {
-        return { index: i, data: await prepareStyleData(style) };
+        return { index: i, data: await prepareStyleData(style), ok: true };
       } catch {
-        return { index: i, data: {} as PreparedStyle };
+        failedStyleIndices.add(i);
+        return { index: i, data: {} as PreparedStyle, ok: false };
       }
     }),
   );
@@ -143,6 +145,7 @@ export async function POST(request: NextRequest) {
   for (let i = 0; i < styles.length; i++) {
     const style = styles[i];
     const styleGroup = nextStyleGroup + i;
+    const prepFailed = failedStyleIndices.has(i);
 
     for (const angle of angles) {
       const dedupKey = `${style.reference_photo_path ?? ''}::${angle}`;
@@ -164,12 +167,12 @@ export async function POST(request: NextRequest) {
           hair_color_id: style.hair_color_id,
           hair_color_custom: style.hair_color_custom,
           style_label: style.style_label,
-          status: 'pending',
+          status: prepFailed ? 'failed' : 'pending',
         })
         .select('id')
         .single();
 
-      if (gen) {
+      if (gen && !prepFailed) {
         tasks.push({ styleIndex: i, styleGroup, angle, generationId: gen.id, style });
       }
     }

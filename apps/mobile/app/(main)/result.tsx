@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { View, Text, Pressable, Alert, Image as RNImage, useWindowDimensions, ScrollView, ActivityIndicator, FlatList, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { apiGet, apiPatch, apiPost, apiSSE } from '../../lib/api';
 import { useCloseSession } from '../../hooks/useCloseSession';
 import type { Generation } from '../../lib/types';
@@ -15,6 +16,7 @@ export default function ResultScreen() {
   const { sessionId } = useLocalSearchParams<{ sessionId: string }>();
   const theme = useAppTheme();
   const { width: screenWidth } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
   const [generations, setGenerations] = useState<Generation[]>([]);
   const [loading, setLoading] = useState(true);
   const [customerPhotoUrl, setCustomerPhotoUrl] = useState<string | null>(null);
@@ -26,7 +28,7 @@ export default function ResultScreen() {
   const closeSession = useCloseSession(sessionId);
 
   const fetchSession = useCallback(async () => {
-    if (!sessionId) return;
+    if (!sessionId) { setLoading(false); return; }
 
     setLoading(true);
     try {
@@ -47,6 +49,7 @@ export default function ResultScreen() {
             style_group: g.style_group,
             angle: g.angle,
             style_label: g.style_label ?? undefined,
+            is_favorite: g.is_favorite,
             reference_photo_path: (g as any).reference_photo_path,
             reference_type: (g as any).reference_type,
             reference_source_url: (g as any).reference_source_url,
@@ -145,7 +148,7 @@ export default function ResultScreen() {
 
   if (loading) {
     return (
-      <View style={{ flex: 1, backgroundColor: theme.colors.bg, alignItems: 'center', justifyContent: 'center' }}>
+      <View style={{ flex: 1, backgroundColor: theme.colors.background, alignItems: 'center', justifyContent: 'center' }}>
         <ActivityIndicator size="large" color="#B8956A" />
       </View>
     );
@@ -160,7 +163,7 @@ export default function ResultScreen() {
 
     return (
       <View style={{ flex: 1, backgroundColor: '#000' }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingTop: 60, paddingBottom: 12 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingTop: insets.top + 12, paddingBottom: 12 }}>
           <Pressable style={{ paddingVertical: 8, paddingRight: 16 }} onPress={() => setViewerGen(null)}>
             <Text style={{ color: '#E8E0D8', fontSize: 14 }}>戻る</Text>
           </Pressable>
@@ -231,8 +234,8 @@ export default function ResultScreen() {
   }
 
   return (
-    <View style={{ flex: 1, backgroundColor: theme.colors.bg }}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingTop: 60, paddingBottom: 12 }}>
+    <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingTop: insets.top + 12, paddingBottom: 12 }}>
         <Pressable style={{ paddingVertical: 8, paddingRight: 16 }} onPress={() => router.replace('/(main)')}>
           <Text style={{ color: theme.colors.muted, fontSize: 14 }}>ホーム</Text>
         </Pressable>
@@ -280,7 +283,7 @@ export default function ResultScreen() {
         )}
       </ScrollView>
 
-      <View style={{ borderTopWidth: 0.5, borderTopColor: 'rgba(151,145,137,0.12)', paddingHorizontal: 20, paddingBottom: 32, paddingTop: 14, backgroundColor: theme.colors.bg }}>
+      <View style={{ borderTopWidth: 0.5, borderTopColor: 'rgba(151,145,137,0.12)', paddingHorizontal: 20, paddingBottom: 32, paddingTop: 14, backgroundColor: theme.colors.background }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
           <Pressable
             style={{ paddingHorizontal: 18, paddingVertical: 10, borderRadius: 999, backgroundColor: 'rgba(151,145,137,0.06)', borderWidth: 0.5, borderColor: 'rgba(151,145,137,0.12)' }}
@@ -422,10 +425,7 @@ function GlamourTile({
         </Text>
         <Pressable
           hitSlop={8}
-          onPress={() => {
-            impactLight();
-            onToggleFavorite(gen.id, gen.is_favorite);
-          }}
+          onPress={() => onToggleFavorite(gen.id, gen.is_favorite)}
         >
           <Text style={{ fontSize: 16, color: gen.is_favorite ? '#EF5350' : theme.colors.muted }}>
             {gen.is_favorite ? '\u2665' : '\u2661'}

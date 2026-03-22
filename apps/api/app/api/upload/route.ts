@@ -21,6 +21,19 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const { data: session } = await supabaseAdmin
+      .from('sessions')
+      .select('staff_id')
+      .eq('id', sessionId)
+      .single();
+
+    if (!session) {
+      return NextResponse.json({ error: 'Not Found', message: 'Session not found' }, { status: 404 });
+    }
+    if (session.staff_id !== auth.staffId && !['admin', 'manager'].includes(auth.role)) {
+      return NextResponse.json({ error: 'Forbidden', message: 'Access denied' }, { status: 403 });
+    }
+
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
 

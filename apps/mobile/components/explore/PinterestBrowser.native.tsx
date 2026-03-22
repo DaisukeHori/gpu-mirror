@@ -1,26 +1,18 @@
-import { useState, useRef, useCallback, forwardRef, useImperativeHandle } from 'react';
-import { View, Text, Pressable, Alert, TextInput, ScrollView } from 'react-native';
+import { useState, useRef, useCallback, useEffect, forwardRef, useImperativeHandle } from 'react';
+import { View, Text, Pressable, Alert, TextInput, ScrollView, Platform, BackHandler } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { PINTEREST_INJECT_SCRIPT } from '../../lib/pinterest-inject';
 import { usePinterest } from '../../hooks/usePinterest';
 import type { SelectedStyle } from '../../lib/types';
 import { impactLight } from '../../lib/haptics';
-
-const DEFAULT_QUERY = 'ヘアスタイル 日本人 女性';
-const JAPANESE_PRESETS = [
-  { label: 'ボブ', query: 'ヘアスタイル 日本人 ボブ' },
-  { label: 'ショート', query: 'ヘアスタイル 日本人 ショート' },
-  { label: 'ミディアム', query: 'ヘアスタイル 日本人 ミディアム' },
-  { label: 'レイヤー', query: 'ヘアスタイル 日本人 レイヤー' },
-  { label: '前髪あり', query: 'ヘアスタイル 日本人 前髪あり' },
-  { label: '韓国風', query: 'ヘアスタイル 韓国風 日本人' },
-  { label: 'メンズ', query: 'ヘアスタイル 日本人 メンズ' },
-] as const;
-
-function buildPinterestSearchUrl(query: string) {
-  const normalized = query.trim() || DEFAULT_QUERY;
-  return `https://www.pinterest.com/search/pins/?q=${encodeURIComponent(normalized)}`;
-}
+import {
+  DEFAULT_PINTEREST_QUERY,
+  JAPANESE_PRESETS,
+  buildPinterestSearchUrl,
+  shouldStartLoadWithRequest,
+  isPinDetailUrl,
+  extractPageLabel,
+} from '../../lib/pinterest-helpers';
 
 interface PinterestBrowserProps {
   sessionId: string;
@@ -41,8 +33,8 @@ export const PinterestBrowser = forwardRef<PinterestBrowserHandle, PinterestBrow
   const [canGoBack, setCanGoBack] = useState(false);
   const [canGoForward, setCanGoForward] = useState(false);
   const [pageLabel, setPageLabel] = useState('Pinterest');
-  const [searchQuery, setSearchQuery] = useState(DEFAULT_QUERY);
-  const [webUrl, setWebUrl] = useState(buildPinterestSearchUrl(DEFAULT_QUERY));
+  const [searchQuery, setSearchQuery] = useState(DEFAULT_PINTEREST_QUERY);
+  const [webUrl, setWebUrl] = useState(buildPinterestSearchUrl(DEFAULT_PINTEREST_QUERY));
   const [isPinDetail, setIsPinDetail] = useState(false);
 
   const handleMessage = useCallback(
@@ -96,26 +88,16 @@ export const PinterestBrowser = forwardRef<PinterestBrowserHandle, PinterestBrow
       setCanGoBack(state.canGoBack);
       setCanGoForward(state.canGoForward);
 
-      const nextLabel =
-        state.title?.trim() ||
-        (() => {
-          try {
-            return new URL(state.url).hostname.replace(/^www\./, '');
-          } catch {
-            return 'Pinterest';
-          }
-        })();
-
-      setPageLabel(nextLabel);
-      const pinDetail = state.url.includes('/pin/');
+      setPageLabel(extractPageLabel(state.title, state.url));
+      const pinDetail = isPinDetailUrl(state.url);
       setIsPinDetail(pinDetail);
       onPinDetailChange?.(pinDetail);
     },
-    [],
+    [onPinDetailChange],
   );
 
   const handleApplyQuery = useCallback((nextQuery: string) => {
-    const normalized = nextQuery.trim() || DEFAULT_QUERY;
+    const normalized = nextQuery.trim() || DEFAULT_PINTEREST_QUERY;
     impactLight();
     setSearchQuery(normalized);
     setWebUrl(buildPinterestSearchUrl(normalized));
@@ -123,16 +105,7 @@ export const PinterestBrowser = forwardRef<PinterestBrowserHandle, PinterestBrow
   }, []);
 
   const handleShouldStartLoad = useCallback((request: { url: string }) => {
-    const url = request.url ?? '';
-    if (!url) {
-      return false;
-    }
-
-    if (url === 'about:blank' || url.startsWith('about:srcdoc')) {
-      return true;
-    }
-
-    return /^(https?|about):\/\//.test(url) || url.startsWith('about:');
+    return shouldStartLoadWithRequest(request.url ?? '');
   }, []);
 
   const handleLoadEnd = useCallback(() => {
@@ -149,6 +122,19 @@ export const PinterestBrowser = forwardRef<PinterestBrowserHandle, PinterestBrow
       ';true;'
     );
   }, []);
+
+  useEffect(() => {
+    if (Platform.OS !== 'android') return;
+    const handler = () => {
+      if (canGoBack && webviewRef.current) {
+        webviewRef.current.goBack();
+        return true;
+      }
+      return false;
+    };
+    const sub = BackHandler.addEventListener('hardwareBackPress', handler);
+    return () => sub.remove();
+  }, [canGoBack]);
 
   useImperativeHandle(ref, () => ({
     selectCurrentPin: handleSelectFromDetail,

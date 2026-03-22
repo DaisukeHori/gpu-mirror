@@ -27,7 +27,12 @@
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
-      "package": "com.revol.mirror"
+      "package": "com.revol.mirror",
+      "versionCode": 1,
+      "permissions": [
+        "CAMERA",
+        "READ_MEDIA_IMAGES"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png",
@@ -44,7 +49,13 @@
           "cameraPermission": "ヘアスタイルシミュレーションのためにカメラを使用します"
         }
       ],
-      "expo-sharing"
+      "expo-sharing",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "参照画像を選択するためにフォトライブラリを使用します"
+        }
+      ]
     ]
   }
 }

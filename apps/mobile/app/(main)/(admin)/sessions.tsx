@@ -6,13 +6,15 @@ import {
   ScrollView,
   TextInput,
   ActivityIndicator,
-  Share,
   Platform,
   useWindowDimensions,
   Alert,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import * as FileSystem from 'expo-file-system/legacy';
+import * as Sharing from 'expo-sharing';
 import type { GetSessionResponse, ListSessionsResponse } from '@revol-mirror/shared';
 import { apiGet } from '../../../lib/api';
 import { getBrowserHistoryLength } from '../../../lib/browser';
@@ -41,10 +43,7 @@ function formatCurrency(total: number) {
   return `$${total.toFixed(2)}`;
 }
 
-function escapeCsvCell(value: unknown) {
-  const text = String(value ?? '');
-  return `"${text.replace(/"/g, '""')}"`;
-}
+import { escapeCsvCell, buildCsv } from '../../../lib/csv';
 
 async function downloadCsv(filename: string, csv: string) {
   if (Platform.OS === 'web' && typeof document !== 'undefined') {
@@ -58,26 +57,24 @@ async function downloadCsv(filename: string, csv: string) {
     return;
   }
 
-  await Share.share({
-    title: filename,
-    message: csv,
-  });
+  const dir = FileSystem.cacheDirectory;
+  if (!dir) {
+    Alert.alert('エクスポートに失敗しました', 'キャッシュディレクトリにアクセスできません。');
+    return;
+  }
+  try {
+    const fileUri = `${dir}${filename}`;
+    await FileSystem.writeAsStringAsync(fileUri, csv, { encoding: FileSystem.EncodingType.UTF8 });
+    await Sharing.shareAsync(fileUri, { mimeType: 'text/csv', dialogTitle: filename });
+  } catch {
+    Alert.alert('エクスポートに失敗しました', 'ファイルの書き出しまたは共有に失敗しました。');
+  }
 }
 
-function buildCsv(rows: Array<Record<string, unknown>>) {
-  if (rows.length === 0) return '';
-
-  const headers = Object.keys(rows[0]);
-  const lines = [
-    headers.map(escapeCsvCell).join(','),
-    ...rows.map((row) => headers.map((header) => escapeCsvCell(row[header])).join(',')),
-  ];
-
-  return lines.join('\n');
-}
 
 export default function AdminSessionsScreen() {
   const theme = useAppTheme();
+  const insets = useSafeAreaInsets();
   const { staff } = useCurrentStaff();
   const { width } = useWindowDimensions();
   const isWide = width >= 1180;
@@ -219,10 +216,11 @@ export default function AdminSessionsScreen() {
 
       do {
         const response = await apiGet<ListSessionsResponse>(`/api/sessions?page=${currentPage}&limit=100`);
+        if (response.sessions.length === 0) break;
         allSessions.push(...response.sessions);
         expectedTotal = response.total;
         currentPage += 1;
-      } while (allSessions.length < expectedTotal);
+      } while (allSessions.length < expectedTotal && currentPage <= 100);
 
       const rows = allSessions
         .filter(matchesFilter)
@@ -287,7 +285,7 @@ export default function AdminSessionsScreen() {
 
   return (
     <View className="flex-1 bg-bg">
-      <View className="px-6 pt-16 pb-5 border-b border-border bg-bg">
+      <View className="px-6 pb-5 border-b border-border bg-bg" style={{ paddingTop: insets.top + 12 }}>
         <View className="flex-row items-start justify-between gap-4">
           <View className="flex-1">
             <Pressable onPress={handleBack} className="py-2 mb-4 self-start">

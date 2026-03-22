@@ -44,7 +44,7 @@ export async function downloadAndCache(
   sessionId: string,
   genId: string,
   remoteUrl: string,
-  meta: { style_group: number; angle: string; style_label?: string; reference_photo_path?: string; reference_type?: string; reference_source_url?: string; simulation_mode?: string; generated_photo_path?: string },
+  meta: { style_group: number; angle: string; style_label?: string; is_favorite?: boolean; reference_photo_path?: string; reference_type?: string; reference_source_url?: string; simulation_mode?: string; generated_photo_path?: string },
 ): Promise<string> {
   if (downloadingUrls.has(genId)) return remoteUrl;
 
@@ -70,7 +70,7 @@ export async function downloadAndCache(
       localUri,
       status: 'completed',
       style_label: meta.style_label,
-      is_favorite: false,
+      is_favorite: meta.is_favorite ?? false,
       remoteUrl,
       reference_photo_path: meta.reference_photo_path,
       reference_type: meta.reference_type,

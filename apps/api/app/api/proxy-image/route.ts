@@ -25,6 +25,19 @@ export async function POST(request: NextRequest) {
   }
   const { url, session_id } = parsed.data;
 
+  const { data: session } = await supabaseAdmin
+    .from('sessions')
+    .select('staff_id')
+    .eq('id', session_id)
+    .single();
+
+  if (!session) {
+    return NextResponse.json({ error: 'Not Found', message: 'Session not found' }, { status: 404 });
+  }
+  if (session.staff_id !== auth.staffId && !['admin', 'manager'].includes(auth.role)) {
+    return NextResponse.json({ error: 'Forbidden', message: 'Access denied' }, { status: 403 });
+  }
+
   try {
     const parsed = new URL(url);
     const allowedHosts = ['i.pinimg.com', 'pinimg.com', 'pinterest.com', 'www.pinterest.com'];

@@ -33,13 +33,17 @@ vi.mock('../../lib/supabase-admin', () => ({
         };
       }
       if (table === 'session_generations') {
+        const chainableEq: any = vi.fn().mockImplementation(() => ({
+          eq: chainableEq,
+          not: vi.fn().mockResolvedValue({ data: [], error: null }),
+          order: vi.fn().mockReturnValue({
+            limit: vi.fn().mockReturnValue(mockGenSelectRange),
+          }),
+          single: mockGenInsertSingle,
+        }));
         return {
           select: vi.fn().mockReturnValue({
-            eq: vi.fn().mockReturnValue({
-              order: vi.fn().mockReturnValue({
-                limit: vi.fn().mockReturnValue(mockGenSelectRange),
-              }),
-            }),
+            eq: chainableEq,
           }),
           insert: vi.fn().mockReturnValue({
             select: vi.fn().mockReturnValue({ single: mockGenInsertSingle }),
@@ -79,6 +83,7 @@ vi.mock('../../lib/image-utils', () => ({
 vi.mock('../../lib/concurrency', () => ({
   createConcurrencyLimiter: () => (fn: () => Promise<unknown>) => fn(),
   withTimeout: vi.fn().mockImplementation((promise: Promise<unknown>) => promise),
+  GENERATION_TIMEOUT_MS: 60000,
 }));
 
 import { POST } from '../../app/api/generate/route';

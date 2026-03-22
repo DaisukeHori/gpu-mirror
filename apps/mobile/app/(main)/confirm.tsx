@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { View, Text, Pressable, ScrollView, useWindowDimensions } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
 import { ExitButton } from '../../components/common/ExitButton';
 import { HapticButton } from '../../components/common/HapticButton';
@@ -38,6 +39,7 @@ export default function ConfirmScreen() {
 
   const closeSession = useCloseSession(params.sessionId);
   const theme = useAppTheme();
+  const insets = useSafeAreaInsets();
   const { width: screenWidth } = useWindowDimensions();
   const cardWidth = (screenWidth - GRID_PAD * 2 - GRID_GAP) / 2;
   const imageHeight = cardWidth * 1.25;
@@ -311,14 +313,14 @@ export default function ConfirmScreen() {
   };
 
   return (
-    <View style={{ flex: 1, backgroundColor: theme.colors.bg }}>
+    <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
       <View
         style={{
           flexDirection: 'row',
           alignItems: 'center',
           justifyContent: 'space-between',
           paddingHorizontal: GRID_PAD,
-          paddingTop: 60,
+          paddingTop: insets.top + 12,
           paddingBottom: 16,
         }}
       >
@@ -403,7 +405,7 @@ export default function ConfirmScreen() {
           paddingHorizontal: GRID_PAD,
           paddingBottom: 32,
           paddingTop: 16,
-          backgroundColor: theme.colors.bg,
+          backgroundColor: theme.colors.background,
           borderTopWidth: 0.5,
           borderTopColor: 'rgba(151,145,137,0.12)',
         }}

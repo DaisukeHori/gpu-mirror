@@ -1,6 +1,7 @@
 import { useState, useRef } from 'react';
 import { View, Text, Pressable, ScrollView, useWindowDimensions } from 'react-native';
 import { router } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAppTheme } from '../../lib/theme-provider';
 
 const TERMS_TEXT = `REVOL Mirror 利用規約
@@ -155,7 +156,7 @@ const PRIVACY_TEXT = `プライバシーポリシー
 （6）従業員教育: 個人情報を取り扱う従業員に対し、定期的にセキュリティ教育を実施します。
 
 9. Cookie および類似技術
-本サービス（iPad アプリ）では、Cookie は使用しません。認証情報はセキュアストレージに暗号化された状態で保存されます。
+本サービス（モバイルアプリ）では、Cookie は使用しません。認証情報はセキュアストレージに暗号化された状態で保存されます。
 
 10. 未成年者の個人情報
 18歳未満のお客さまの個人情報については、保護者の同意を得たうえで取り扱います。保護者の方から削除請求があった場合は、速やかに対応いたします。
@@ -177,14 +178,25 @@ const PRIVACY_TEXT = `プライバシーポリシー
 
 export default function TermsScreen() {
   const theme = useAppTheme();
+  const insets = useSafeAreaInsets();
   const { height } = useWindowDimensions();
   const [agreed, setAgreed] = useState(false);
   const [scrolledToEnd, setScrolledToEnd] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
 
+  const layoutRef = useRef<{ height: number }>(null);
+
   const handleScroll = (e: { nativeEvent: { contentOffset: { y: number }; contentSize: { height: number }; layoutMeasurement: { height: number } } }) => {
     const { contentOffset, contentSize, layoutMeasurement } = e.nativeEvent;
+    layoutRef.current = { height: layoutMeasurement.height };
     if (contentOffset.y + layoutMeasurement.height >= contentSize.height - 50) {
+      setScrolledToEnd(true);
+    }
+  };
+
+  const handleContentSizeChange = (_w: number, contentHeight: number) => {
+    const layoutHeight = layoutRef.current?.height ?? height * 0.6;
+    if (contentHeight > 0 && contentHeight <= layoutHeight + 50) {
       setScrolledToEnd(true);
     }
   };
@@ -196,7 +208,7 @@ export default function TermsScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
-      <View style={{ paddingHorizontal: 24, paddingTop: 60, paddingBottom: 12 }}>
+      <View style={{ paddingHorizontal: 24, paddingTop: insets.top + 12, paddingBottom: 12 }}>
         <Text style={{ color: theme.colors.primary, fontSize: 20, fontWeight: '600' }}>
           利用規約・プライバシーポリシー
         </Text>
@@ -216,6 +228,7 @@ export default function TermsScreen() {
         }}
         showsVerticalScrollIndicator
         onScroll={handleScroll}
+        onContentSizeChange={handleContentSizeChange}
         scrollEventThrottle={100}
       >
         <Text style={{ color: theme.colors.primary, fontSize: 15, fontWeight: '600', marginBottom: 12 }}>

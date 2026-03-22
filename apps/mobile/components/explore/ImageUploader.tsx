@@ -16,6 +16,12 @@ export function ImageUploader({ sessionId, onUpload }: ImageUploaderProps) {
   const theme = useAppTheme();
 
   const handlePick = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('権限が必要です', '写真を選択するにはフォトライブラリへのアクセスを許可してください。');
+      return;
+    }
+
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'],
       quality: 0.9,

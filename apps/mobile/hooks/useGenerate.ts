@@ -323,18 +323,7 @@ export function useGenerate() {
           ),
         );
 
-        useEffect(() => {
-    if (!isGenerating || isComplete || progress.size === 0) return;
-    const allGroupsDone = Array.from(progress.values()).every(
-      (g) => g.completed.length + g.failed.length >= g.total,
-    );
-    if (allGroupsDone) {
-      setIsComplete(true);
-      setIsGenerating(false);
-    }
-  }, [progress, isGenerating, isComplete]);
-
-  return {
+        return {
           generation_id: data.generation_id,
           style_group: 0,
           angle: '',

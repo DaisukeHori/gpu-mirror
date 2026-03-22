@@ -141,4 +141,13 @@ describe('GET /api/sessions', () => {
     expect(body.page).toBe(1);
     expect(body.limit).toBe(20);
   });
+
+  it('returns 401 when unauthenticated', async () => {
+    mockAuth.mockResolvedValueOnce(
+      NextResponse.json({ error: 'Unauthorized' }, { status: 401 }),
+    );
+    const req = createRequest('/api/sessions?page=1&limit=20');
+    const res = await GET(req);
+    expect(res.status).toBe(401);
+  });
 });
