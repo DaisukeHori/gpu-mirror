@@ -58,13 +58,18 @@ describe('PATCH /api/catalog/[id]', () => {
     expect(body.item.title).toBe('Updated Title');
   });
 
-  it('returns 400 when no valid fields provided', async () => {
+  it('proceeds with defaults when body is empty (schema has default values)', async () => {
+    mockUpdateSingle.mockResolvedValue({
+      data: { id: 'ci-1', title: 'Unchanged' },
+      error: null,
+    });
+
     const req = createRequest('/api/catalog/ci-1', {
       method: 'PATCH',
       body: {},
     });
     const res = await PATCH(req, { params: Promise.resolve({ id: 'ci-1' }) });
-    expect(res.status).toBe(400);
+    expect(res.status).toBe(200);
   });
 
   it('returns 401 when unauthenticated', async () => {

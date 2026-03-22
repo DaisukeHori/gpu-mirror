@@ -33,6 +33,7 @@ vi.mock('../../lib/supabase-admin', () => ({
         };
       }
       if (table === 'session_generations') {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const chainableEq: any = vi.fn().mockImplementation(() => ({
           eq: chainableEq,
           not: vi.fn().mockResolvedValue({ data: [], error: null }),

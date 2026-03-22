@@ -51,3 +51,14 @@ export {
   updateCatalogItemSchema,
   catalogQuerySchema,
 } from './validators/catalog';
+
+export {
+  getSessionResponseSchema,
+  listSessionsResponseSchema,
+  createSessionResponseSchema,
+  uploadImageResponseSchema,
+  colorsListResponseSchema,
+  generationEventSchema,
+  sessionSchema,
+  sessionGenerationSchema,
+} from './validators/responses';

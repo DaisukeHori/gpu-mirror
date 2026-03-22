@@ -1,10 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
-import { View, Text, Pressable, Platform } from 'react-native';
+import { View, Text, Pressable, Platform, ActivityIndicator } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { SelectedStyle } from '../../lib/types';
 import { ExitButton } from '../../components/common/ExitButton';
+import { MissingRouteParamsFallback } from '../../components/common/MissingRouteParamsFallback';
 import { useCloseSession } from '../../hooks/useCloseSession';
+import { apiGet } from '../../lib/api';
+import { normalizeRouteParam } from '../../lib/route-params';
 import { PinterestBrowser, type PinterestBrowserHandle } from '../../components/explore/PinterestBrowser';
 import { CatalogGrid } from '../../components/explore/CatalogGrid';
 import { ImageUploader } from '../../components/explore/ImageUploader';
@@ -33,7 +36,11 @@ export default function ExploreScreen() {
     customerPhotoPath: string;
     customerPhotoUrl: string;
   }>();
-  const closeSession = useCloseSession(sessionId);
+  const sid = normalizeRouteParam(sessionId as unknown as string | string[] | undefined);
+  const pathParam = normalizeRouteParam(customerPhotoPath as unknown as string | string[] | undefined);
+  const urlParam = normalizeRouteParam(customerPhotoUrl as unknown as string | string[] | undefined);
+
+  const closeSession = useCloseSession(sid || undefined);
   const insets = useSafeAreaInsets();
   const [activeTab, setActiveTab] = useState<TabKey>(Platform.OS === 'web' ? 'catalog' : 'pinterest');
   const [selectedStyles, setSelectedStyles] = useState<SelectedStyle[]>([]);
@@ -43,17 +50,61 @@ export default function ExploreScreen() {
   const [isPinDetail, setIsPinDetail] = useState(false);
   const [addingPin, setAddingPin] = useState(false);
 
+  const [customerHydration, setCustomerHydration] = useState<
+    'pending' | 'ready' | 'error'
+  >('pending');
+  const [resolvedCustomerPath, setResolvedCustomerPath] = useState('');
+  const [resolvedCustomerUrl, setResolvedCustomerUrl] = useState('');
+
   useEffect(() => {
-    setSelectedStyles(getStoredSelectedStyles(sessionId));
+    if (!sid.trim()) {
+      return;
+    }
+    const pathOk = pathParam.trim().length > 0 && pathParam !== 'existing';
+    const urlOk = urlParam.trim().length > 0;
+    if (pathOk && urlOk) {
+      setResolvedCustomerPath(pathParam);
+      setResolvedCustomerUrl(urlParam);
+      setCustomerHydration('ready');
+      return;
+    }
+
+    setCustomerHydration('pending');
+    let cancelled = false;
+    apiGet<{ session: { customer_photo_path: string; customer_photo_url: string | null } }>(
+      `/api/sessions/${sid}`,
+    )
+      .then((res) => {
+        if (cancelled) return;
+        const p = res.session.customer_photo_path ?? '';
+        const u = res.session.customer_photo_url ?? '';
+        if (!p.trim() || !u.trim()) {
+          setCustomerHydration('error');
+          return;
+        }
+        setResolvedCustomerPath(p);
+        setResolvedCustomerUrl(u);
+        setCustomerHydration('ready');
+      })
+      .catch(() => {
+        if (!cancelled) setCustomerHydration('error');
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [sid, pathParam, urlParam]);
+
+  useEffect(() => {
+    setSelectedStyles(getStoredSelectedStyles(sid));
     setHasHydratedSelection(true);
-  }, [sessionId]);
+  }, [sid]);
 
   useEffect(() => {
     if (!hasHydratedSelection) {
       return;
     }
-    setStoredSelectedStyles(sessionId, selectedStyles);
-  }, [hasHydratedSelection, sessionId, selectedStyles]);
+    setStoredSelectedStyles(sid, selectedStyles);
+  }, [hasHydratedSelection, sid, selectedStyles]);
 
   const addStyle = (style: SelectedStyle) => {
     impactLight();
@@ -69,19 +120,40 @@ export default function ExploreScreen() {
   };
 
   const handleConfirm = () => {
-    if (selectedStyles.length === 0) return;
-    setStoredSelectedStyles(sessionId, selectedStyles);
+    if (selectedStyles.length === 0 || customerHydration !== 'ready') return;
+    setStoredSelectedStyles(sid, selectedStyles);
     router.push({
       pathname: '/(main)/confirm',
       params: {
-        sessionId: sessionId!,
-        customerPhotoPath: customerPhotoPath!,
-        customerPhotoUrl: customerPhotoUrl!,
+        sessionId: sid,
+        customerPhotoPath: resolvedCustomerPath,
+        customerPhotoUrl: resolvedCustomerUrl,
         selectedColorId: selectedColor?.id ?? '',
         selectedColorName: selectedColor?.name ?? '',
       },
     });
   };
+
+  if (!sid.trim()) {
+    return (
+      <MissingRouteParamsFallback message="セッション情報が見つかりません。ホームからやり直してください。" />
+    );
+  }
+
+  if (customerHydration === 'pending') {
+    return (
+      <View className="flex-1 bg-bg items-center justify-center" style={{ paddingTop: insets.top }}>
+        <ActivityIndicator size="large" color="#B8956A" />
+        <Text className="text-text-muted text-sm mt-4 tracking-wide">読み込み中...</Text>
+      </View>
+    );
+  }
+
+  if (customerHydration === 'error') {
+    return (
+      <MissingRouteParamsFallback message="お客さまの写真情報を取得できませんでした。ホームからやり直してください。" />
+    );
+  }
 
   return (
     <View className="flex-1 bg-bg">
@@ -123,7 +195,7 @@ export default function ExploreScreen() {
         {activeTab === 'pinterest' && (
           <PinterestBrowser
             ref={pinterestRef}
-            sessionId={sessionId!}
+            sessionId={sid}
             onSelectImage={addStyle}
             onPinDetailChange={setIsPinDetail}
             onImportStart={() => setAddingPin(true)}
@@ -134,7 +206,7 @@ export default function ExploreScreen() {
           <CatalogGrid onSelectItem={addStyle} />
         )}
         {activeTab === 'upload' && (
-          <ImageUploader sessionId={sessionId!} onUpload={addStyle} />
+          <ImageUploader sessionId={sid} onUpload={addStyle} />
         )}
         {activeTab === 'color' && (
           <ColorPalette

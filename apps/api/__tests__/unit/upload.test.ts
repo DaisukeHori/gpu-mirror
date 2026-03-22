@@ -58,6 +58,7 @@ function createFormDataRequest(fields: Record<string, string | Blob>): NextReque
     method: 'POST',
     body: formData,
     headers: { Authorization: 'Bearer test-token' },
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } as any);
   return req;
 }
@@ -154,6 +155,7 @@ describe('POST /api/upload', () => {
           single: vi.fn().mockResolvedValue({ data: { staff_id: 'other-staff' }, error: null }),
         }),
       }),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } as any));
 
     const file = new Blob(['data'], { type: 'image/jpeg' });
@@ -171,6 +173,7 @@ describe('POST /api/upload', () => {
           single: vi.fn().mockResolvedValue({ data: null, error: null }),
         }),
       }),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } as any));
 
     const file = new Blob(['data'], { type: 'image/jpeg' });

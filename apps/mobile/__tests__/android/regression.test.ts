@@ -383,3 +383,35 @@ describe('Structural guards: prevent previously found bugs from recurring', () =
     expect(content).toContain('closed_at = null');
   });
 });
+
+describe('User flow: param guards and terms consent', () => {
+  it('result.tsx does not push explore with placeholder existing', () => {
+    const content = readSourceFile('app/(main)/result.tsx');
+    expect(content).not.toContain("'existing'");
+  });
+
+  it('MissingRouteParamsFallback offers home navigation', () => {
+    const content = readSourceFile('components/common/MissingRouteParamsFallback.tsx');
+    expect(content).toContain('MissingRouteParamsFallback');
+    expect(content).toContain('ホームへ戻る');
+  });
+
+  it('terms-consent exposes version and record/has APIs', () => {
+    const content = readSourceFile('lib/terms-consent.ts');
+    expect(content).toContain('TERMS_CONSENT_VERSION');
+    expect(content).toContain('hasRecordedTermsConsent');
+    expect(content).toContain('recordTermsConsent');
+  });
+
+  it('index uses hasRecordedTermsConsent for はじめる', () => {
+    const content = readSourceFile('app/(main)/index.tsx');
+    expect(content).toContain('hasRecordedTermsConsent');
+    expect(content).toContain('/(main)/photo-prep');
+  });
+
+  it('explore resolves legacy existing path token via session API', () => {
+    const content = readSourceFile('app/(main)/explore.tsx');
+    expect(content).toContain("'existing'");
+    expect(content).toContain('/api/sessions/${sid}');
+  });
+});

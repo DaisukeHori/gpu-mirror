@@ -173,6 +173,7 @@ describe('POST /api/proxy-image', () => {
           single: vi.fn().mockResolvedValue({ data: { staff_id: 'other-staff' }, error: null }),
         }),
       }),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } as any));
 
     const req = createRequest('/api/proxy-image', {

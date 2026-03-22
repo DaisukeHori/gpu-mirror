@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
-import { View, Text, Pressable, ScrollView, useWindowDimensions } from 'react-native';
+import { View, Text, Pressable, ScrollView, useWindowDimensions, Alert } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
 import { ExitButton } from '../../components/common/ExitButton';
 import { HapticButton } from '../../components/common/HapticButton';
+import { MissingRouteParamsFallback } from '../../components/common/MissingRouteParamsFallback';
 import { StyleThumbnail } from '../../components/explore/StyleThumbnail';
 import { apiGet } from '../../lib/api';
 import { useCloseSession } from '../../hooks/useCloseSession';
@@ -15,6 +16,7 @@ import {
 } from '../../lib/style-selection-store';
 import { cacheRemoteImage } from '../../lib/image-cache';
 import { useAppTheme } from '../../lib/theme-provider';
+import { normalizeRouteParam } from '../../lib/route-params';
 
 interface HairColor {
   id: string;
@@ -37,7 +39,9 @@ export default function ConfirmScreen() {
     selectedColorName: string;
   }>();
 
-  const closeSession = useCloseSession(params.sessionId);
+  const sessionIdNorm = normalizeRouteParam(params.sessionId as unknown as string | string[] | undefined);
+
+  const closeSession = useCloseSession(sessionIdNorm || undefined);
   const theme = useAppTheme();
   const insets = useSafeAreaInsets();
   const { width: screenWidth } = useWindowDimensions();
@@ -49,6 +53,30 @@ export default function ConfirmScreen() {
   const [hasPreparedLocalThumbnails, setHasPreparedLocalThumbnails] = useState(false);
   const [colors, setColors] = useState<HairColor[]>([]);
   const [colorPickerFor, setColorPickerFor] = useState<number | null>(null);
+  const [displayCustomerPhotoUrl, setDisplayCustomerPhotoUrl] = useState(() =>
+    normalizeRouteParam(params.customerPhotoUrl as unknown as string | string[] | undefined),
+  );
+
+  useEffect(() => {
+    setDisplayCustomerPhotoUrl(
+      normalizeRouteParam(params.customerPhotoUrl as unknown as string | string[] | undefined),
+    );
+  }, [params.customerPhotoUrl]);
+
+  useEffect(() => {
+    if (!sessionIdNorm.trim()) return;
+    const fromParams = normalizeRouteParam(params.customerPhotoUrl as unknown as string | string[] | undefined);
+    if (fromParams.trim()) return;
+    let cancelled = false;
+    apiGet<{ session: { customer_photo_url: string | null } }>(`/api/sessions/${sessionIdNorm}`)
+      .then((res) => {
+        if (!cancelled) setDisplayCustomerPhotoUrl(res.session.customer_photo_url ?? '');
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [sessionIdNorm, params.customerPhotoUrl]);
 
   useEffect(() => {
     apiGet<{ colors: HairColor[] }>('/api/colors')
@@ -57,7 +85,7 @@ export default function ConfirmScreen() {
   }, []);
 
   useEffect(() => {
-    let nextStyles = getStoredSelectedStyles(params.sessionId);
+    let nextStyles = getStoredSelectedStyles(sessionIdNorm);
     if (nextStyles.length === 0 && params.styles) {
       try {
         nextStyles = JSON.parse(params.styles) as StyleWithColor[];
@@ -65,9 +93,9 @@ export default function ConfirmScreen() {
         nextStyles = [];
       }
     }
-    if (nextStyles.length > 0 && params.sessionId) {
+    if (nextStyles.length > 0 && sessionIdNorm) {
       apiGet<{ session: { session_generations: { reference_photo_path: string; angle: string; status: string }[] } }>(
-        `/api/sessions/${params.sessionId}`
+        `/api/sessions/${sessionIdNorm}`
       ).then((res) => {
         const completed = new Set(
           (res.session.session_generations ?? [])
@@ -78,7 +106,7 @@ export default function ConfirmScreen() {
         if (ungenerated.length === 0) {
           router.replace({
             pathname: '/(main)/result',
-            params: { sessionId: params.sessionId! },
+            params: { sessionId: sessionIdNorm },
           });
           return;
         }
@@ -95,12 +123,12 @@ export default function ConfirmScreen() {
       setHasHydratedStyles(true);
       setHasPreparedLocalThumbnails(false);
     }
-  }, [params.sessionId, params.styles]);
+  }, [sessionIdNorm, params.styles]);
 
   useEffect(() => {
     if (!hasHydratedStyles) return;
-    setStoredSelectedStyles(params.sessionId, stylesWithColor);
-  }, [hasHydratedStyles, params.sessionId, stylesWithColor]);
+    setStoredSelectedStyles(sessionIdNorm, stylesWithColor);
+  }, [hasHydratedStyles, sessionIdNorm, stylesWithColor]);
 
   useEffect(() => {
     if (!hasHydratedStyles || hasPreparedLocalThumbnails) return;
@@ -172,6 +200,10 @@ export default function ConfirmScreen() {
   };
 
   const handleGenerate = () => {
+    if (!displayCustomerPhotoUrl.trim()) {
+      Alert.alert('エラー', 'お客さまの写真を取得できませんでした。通信状況を確認してやり直してください。');
+      return;
+    }
     const apiStyles = stylesWithColor.map((s) => {
       const hasColor = !!(s.assignedColor || s.colorId);
       let simulationMode: string;
@@ -196,8 +228,8 @@ export default function ConfirmScreen() {
     router.replace({
       pathname: '/(main)/generating',
       params: {
-        sessionId: params.sessionId!,
-        customerPhotoUrl: params.customerPhotoUrl!,
+        sessionId: sessionIdNorm,
+        customerPhotoUrl: displayCustomerPhotoUrl.trim(),
         styles: JSON.stringify(apiStyles),
         styleLabels: JSON.stringify(stylesWithColor.map((s) => s.label)),
       },
@@ -312,6 +344,12 @@ export default function ConfirmScreen() {
     );
   };
 
+  if (!sessionIdNorm.trim()) {
+    return (
+      <MissingRouteParamsFallback message="セッション情報が見つかりません。ホームからやり直してください。" />
+    );
+  }
+
   return (
     <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
       <View
@@ -338,11 +376,22 @@ export default function ConfirmScreen() {
       >
         <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 20, marginTop: 4 }}>
           <View style={{ backgroundColor: 'rgba(151,145,137,0.06)', borderRadius: 12, padding: 8 }}>
-            <Image
-              source={{ uri: params.customerPhotoUrl }}
-              style={{ width: 48, height: 48, borderRadius: 8 }}
-              contentFit="cover"
-            />
+            {displayCustomerPhotoUrl.trim() ? (
+              <Image
+                source={{ uri: displayCustomerPhotoUrl }}
+                style={{ width: 48, height: 48, borderRadius: 8 }}
+                contentFit="cover"
+              />
+            ) : (
+              <View
+                style={{
+                  width: 48,
+                  height: 48,
+                  borderRadius: 8,
+                  backgroundColor: 'rgba(151,145,137,0.12)',
+                }}
+              />
+            )}
           </View>
           <View style={{ marginLeft: 14 }}>
             <Text style={{ color: theme.colors.muted, fontSize: 11 }}>お客さまの写真</Text>

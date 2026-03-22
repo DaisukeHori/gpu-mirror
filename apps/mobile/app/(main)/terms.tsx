@@ -3,6 +3,7 @@ import { View, Text, Pressable, ScrollView, useWindowDimensions } from 'react-na
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAppTheme } from '../../lib/theme-provider';
+import { recordTermsConsent } from '../../lib/terms-consent';
 
 const TERMS_TEXT = `REVOL Mirror 利用規約
 
@@ -201,8 +202,9 @@ export default function TermsScreen() {
     }
   };
 
-  const handleNext = () => {
+  const handleNext = async () => {
     if (!agreed) return;
+    await recordTermsConsent();
     router.push('/(main)/photo-prep');
   };
 

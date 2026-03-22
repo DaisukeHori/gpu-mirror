@@ -14,8 +14,9 @@
     "clean": "turbo run clean"
   },
   "devDependencies": {
-    "turbo": "^2.4.0",
-    "prettier": "^3.5.0"
+    "prettier": "^3.5.0",
+    "react-test-renderer": "^19.2.3",
+    "turbo": "^2.4.0"
   },
   "engines": {
     "node": ">=20"

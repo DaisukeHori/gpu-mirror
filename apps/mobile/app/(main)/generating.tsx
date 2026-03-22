@@ -16,6 +16,8 @@ import { ExitButton } from '../../components/common/ExitButton';
 import { useCloseSession } from '../../hooks/useCloseSession';
 import { ProgressBoard } from '../../components/generating/ProgressBoard';
 import { getStoredSelectedStyles } from '../../lib/style-selection-store';
+import { MissingRouteParamsFallback } from '../../components/common/MissingRouteParamsFallback';
+import { normalizeRouteParam } from '../../lib/route-params';
 
 function OrbDot({ delay }: { delay: number }) {
   const translateY = useSharedValue(0);
@@ -88,15 +90,29 @@ export default function GeneratingScreen() {
     previousStyleGroup?: string;
   }>();
 
-  let styles: { simulation_mode: string; reference_type: string; [key: string]: unknown }[] = [];
-  let styleLabels: string[] = [];
-  try { styles = JSON.parse(params.styles ?? '[]'); } catch { /* noop */ }
-  try { styleLabels = JSON.parse(params.styleLabels ?? '[]'); } catch { /* noop */ }
+  const sessionIdNorm = normalizeRouteParam(params.sessionId as unknown as string | string[] | undefined);
+
+  const styles = useMemo(() => {
+    try {
+      return JSON.parse(params.styles ?? '[]') as { simulation_mode: string; reference_type: string; [key: string]: unknown }[];
+    } catch {
+      return [];
+    }
+  }, [params.styles]);
+
+  const styleLabels = useMemo(() => {
+    try {
+      return JSON.parse(params.styleLabels ?? '[]') as string[];
+    } catch {
+      return [];
+    }
+  }, [params.styleLabels]);
+
   const styleThumbnails = useMemo(() => {
-    const stored = getStoredSelectedStyles(params.sessionId);
+    const stored = getStoredSelectedStyles(sessionIdNorm);
     return stored.map((s) => s.thumbnailUrl || s.localThumbnailUri || s.sourceUrl || '');
-  }, [params.sessionId]);
-  const closeSession = useCloseSession(params.sessionId);
+  }, [sessionIdNorm]);
+  const closeSession = useCloseSession(sessionIdNorm || undefined);
   const insets = useSafeAreaInsets();
   const { results, progress, isGenerating, isComplete, startGeneration, reset } = useGenerate();
 
@@ -112,11 +128,20 @@ export default function GeneratingScreen() {
   }, []);
 
   useEffect(() => {
-    if (params.sessionId && styles.length > 0) {
-      startGeneration(params.sessionId, styles, undefined, params.customInstruction, params.previousStyleGroup ? parseInt(params.previousStyleGroup, 10) : undefined);
+    if (!sessionIdNorm.trim() || styles.length === 0) {
+      return;
     }
-    return () => { reset(); };
-  }, []);
+    startGeneration(
+      sessionIdNorm,
+      styles,
+      undefined,
+      params.customInstruction,
+      params.previousStyleGroup ? parseInt(params.previousStyleGroup, 10) : undefined,
+    );
+    return () => {
+      reset();
+    };
+  }, [sessionIdNorm, params.styles, params.customInstruction, params.previousStyleGroup, reset, startGeneration]);
 
   useEffect(() => {
     if (isComplete) {
@@ -124,12 +149,12 @@ export default function GeneratingScreen() {
       const timer = setTimeout(() => {
         router.replace({
           pathname: '/(main)/result',
-          params: { sessionId: params.sessionId! },
+          params: { sessionId: sessionIdNorm },
         });
       }, 1200);
       return () => clearTimeout(timer);
     }
-  }, [isComplete, params.sessionId]);
+  }, [isComplete, sessionIdNorm]);
 
   const contentStyle = useAnimatedStyle(() => ({
     opacity: contentOpacity.value,
@@ -146,10 +171,16 @@ export default function GeneratingScreen() {
     if (groupResults.length > 0) {
       router.replace({
         pathname: '/(main)/result',
-        params: { sessionId: params.sessionId! },
+        params: { sessionId: sessionIdNorm },
       });
     }
   };
+
+  if (!sessionIdNorm.trim() || styles.length === 0) {
+    return (
+      <MissingRouteParamsFallback message="生成に必要な情報が不足しています。ホームからやり直してください。" />
+    );
+  }
 
   return (
     <View className="flex-1 bg-bg">

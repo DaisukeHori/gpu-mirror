@@ -11,9 +11,12 @@ import { ShareSheet } from '../../components/result/ShareSheet';
 import { impactLight } from '../../lib/haptics';
 import { getCachedGenerations, updateCachedFavorite, downloadAndCache } from '../../lib/generation-cache';
 import { useAppTheme } from '../../lib/theme-provider';
+import { normalizeRouteParam } from '../../lib/route-params';
+import { MissingRouteParamsFallback } from '../../components/common/MissingRouteParamsFallback';
 
 export default function ResultScreen() {
   const { sessionId } = useLocalSearchParams<{ sessionId: string }>();
+  const sessionIdNorm = normalizeRouteParam(sessionId as unknown as string | string[] | undefined);
   const theme = useAppTheme();
   const { width: screenWidth } = useWindowDimensions();
   const insets = useSafeAreaInsets();
@@ -25,10 +28,10 @@ export default function ResultScreen() {
   const [viewerGen, setViewerGen] = useState<Generation | null>(null);
   const [refineText, setRefineText] = useState('');
   const [refining, setRefining] = useState(false);
-  const closeSession = useCloseSession(sessionId);
+  const closeSession = useCloseSession(sessionIdNorm || undefined);
 
   const fetchSession = useCallback(async () => {
-    if (!sessionId) { setLoading(false); return; }
+    if (!sessionIdNorm.trim()) { setLoading(false); return; }
 
     setLoading(true);
     try {
@@ -38,14 +41,14 @@ export default function ResultScreen() {
           customer_photo_url: string | null;
           session_generations: Generation[];
         };
-      }>(`/api/sessions/${sessionId}`);
+      }>(`/api/sessions/${sessionIdNorm}`);
       setCustomerPhotoUrl(res.session.customer_photo_url ?? null);
       setCustomerPhotoPath(res.session.customer_photo_path ?? null);
       const gens = res.session.session_generations ?? [];
       setGenerations(gens);
       gens.forEach((g) => {
         if (g.photo_url && g.status === 'completed') {
-          downloadAndCache(sessionId, g.id, g.photo_url, {
+          downloadAndCache(sessionIdNorm, g.id, g.photo_url, {
             style_group: g.style_group,
             angle: g.angle,
             style_label: g.style_label ?? undefined,
@@ -69,7 +72,7 @@ export default function ResultScreen() {
     } finally {
       setLoading(false);
     }
-  }, [sessionId]);
+  }, [sessionIdNorm]);
 
   useEffect(() => { fetchSession(); }, [fetchSession]);
 
@@ -81,23 +84,23 @@ export default function ResultScreen() {
     impactLight();
     const newValue = !current;
     setGenerations((prev) => prev.map((g) => (g.id === genId ? { ...g, is_favorite: newValue } : g)));
-    if (sessionId) updateCachedFavorite(sessionId, genId, newValue);
+    if (sessionIdNorm) updateCachedFavorite(sessionIdNorm, genId, newValue);
     try {
-      await apiPatch(`/api/sessions/${sessionId}/generations/${genId}`, { is_favorite: newValue });
+      await apiPatch(`/api/sessions/${sessionIdNorm}/generations/${genId}`, { is_favorite: newValue });
     } catch {
       setGenerations((prev) => prev.map((g) => (g.id === genId ? { ...g, is_favorite: current } : g)));
     }
   };
 
   const handleRefine = async () => {
-    if (!viewerGen || !refineText.trim() || !sessionId || refining) return;
+    if (!viewerGen || !refineText.trim() || !sessionIdNorm.trim() || refining) return;
     setRefining(true);
     const instruction = refineText.trim();
     setRefineText('');
     try {
       const freshData = await apiGet<{
         session: { session_generations: Array<{ id: string; style_group: number; reference_photo_path?: string; reference_type?: string; reference_source_url?: string; simulation_mode?: string; generated_photo_path?: string; style_label?: string }> };
-      }>(`/api/sessions/${sessionId}`);
+      }>(`/api/sessions/${sessionIdNorm}`);
       const freshGens = freshData.session.session_generations ?? [];
       const match = freshGens.find((g) => g.style_group === viewerGen.style_group);
       if (!match) { setRefining(false); return; }
@@ -117,7 +120,7 @@ export default function ResultScreen() {
       router.replace({
         pathname: '/(main)/generating',
         params: {
-          sessionId: sessionId,
+          sessionId: sessionIdNorm,
           customerPhotoUrl: customerPhotoUrl ?? '',
           styles: JSON.stringify([style]),
           styleLabels: JSON.stringify([style.style_label]),
@@ -132,11 +135,29 @@ export default function ResultScreen() {
     }
   };
 
-    const handleAddStyles = () => {
-    if (!sessionId) return;
+  const handleAddStyles = async () => {
+    if (!sessionIdNorm.trim()) return;
+    let path = customerPhotoPath;
+    let url = customerPhotoUrl;
+    if (!path?.trim() || !url?.trim()) {
+      try {
+        const res = await apiGet<{
+          session: { customer_photo_path: string; customer_photo_url: string | null };
+        }>(`/api/sessions/${sessionIdNorm}`);
+        path = res.session.customer_photo_path ?? path;
+        url = res.session.customer_photo_url ?? url;
+      } catch {
+        Alert.alert('エラー', 'お客さまの写真情報を取得できませんでした。');
+        return;
+      }
+    }
+    if (!path?.trim() || !url?.trim()) {
+      Alert.alert('エラー', 'お客さまの写真情報を取得できませんでした。');
+      return;
+    }
     router.push({
       pathname: '/(main)/explore',
-      params: { sessionId, customerPhotoPath: customerPhotoPath ?? 'existing', customerPhotoUrl: customerPhotoUrl ?? '' },
+      params: { sessionId: sessionIdNorm, customerPhotoPath: path, customerPhotoUrl: url },
     });
   };
 
@@ -151,6 +172,12 @@ export default function ResultScreen() {
       <View style={{ flex: 1, backgroundColor: theme.colors.background, alignItems: 'center', justifyContent: 'center' }}>
         <ActivityIndicator size="large" color="#B8956A" />
       </View>
+    );
+  }
+
+  if (!sessionIdNorm.trim()) {
+    return (
+      <MissingRouteParamsFallback message="セッション情報が見つかりません。ホームからやり直してください。" />
     );
   }
 

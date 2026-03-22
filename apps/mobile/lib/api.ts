@@ -182,7 +182,9 @@ export async function apiSSE(
             const data = JSON.parse(line.slice(6));
             callbacks.onEvent(data);
           } catch {
-            // skip malformed JSON
+            if (typeof __DEV__ !== 'undefined' && __DEV__) {
+              console.warn('[SSE] malformed JSON:', line.slice(6));
+            }
           }
         }
       }

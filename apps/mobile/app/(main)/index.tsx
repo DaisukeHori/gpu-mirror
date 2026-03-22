@@ -11,6 +11,7 @@ import { router } from 'expo-router';
 import { HapticButton } from '../../components/common/HapticButton';
 import { HistoryPanel } from '../../components/history/HistoryPanel';
 import { useCurrentStaff } from '../../hooks/useCurrentStaff';
+import { hasRecordedTermsConsent } from '../../lib/terms-consent';
 
 const ease = { duration: 600, easing: Easing.out(Easing.quad) };
 
@@ -43,7 +44,16 @@ export default function WelcomeScreen() {
     opacity: staffOpacity.value,
   }));
 
-  const handleStart = () => {
+  const handleStart = async () => {
+    try {
+      const already = await hasRecordedTermsConsent();
+      if (already) {
+        router.push('/(main)/photo-prep');
+        return;
+      }
+    } catch {
+      /* fall through to terms */
+    }
     router.push('/(main)/terms');
   };
 
