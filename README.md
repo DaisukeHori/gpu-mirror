@@ -322,9 +322,27 @@ cd apps/mobile && npx tsc --noEmit
 
 ## iOS ビルド
 
+### Release ビルド（JS をアプリに同梱・Metro 不要）
+
+**Debug**（既定の `expo run:ios`）は開発時用で、起動時に Metro から JS を読み込みます。**Release** では Xcode ビルド中に `main.jsbundle` が生成され **アプリバンドルに埋め込まれる**ため、インストール後は **Mac を起動していなくてよい**です。`EXPO_PUBLIC_*` は **ビルド実行時**に `apps/mobile/.env`（またはシェルの環境変数）から埋め込まれます。
+
+```bash
+cd apps/mobile
+export LANG=en_US.UTF-8   # CocoaPods 用（未設定だと pod が失敗することがある）
+# ios/ がまだ無い場合: npx expo prebuild --platform ios
+npm run ios:release:device   # 接続した実機へ Release インストール
+# シミュレータのみ: npm run ios:release
+```
+
+実機を複数台つないでいる場合は `--device <名前またはUDID>` を付けます。
+
+Android も同様に **`npm run android:release`** でリリース APK（バンドル同梱）をビルドできます。
+
+**EAS Build** の `internal` / `production` プロファイルも **Release 相当**で、クラウド上で同じく JS が同梱されます（下記）。
+
 ### Mac なしで実機だけ使う（本番バックエンド・Metro 不要）
 
-`npx expo run:ios` や **development** プロファイルの EAS ビルドは **開発用**で、起動時に Mac 上の Metro（パッケージャ）へ接続します。**JS をアプリに同梱する Release ビルド**にすると、iPad 単体で起動し、API はビルド時に埋め込んだ `EXPO_PUBLIC_*` から本番（Vercel 等）へ向きます。
+`npx expo run:ios`（Debug）や **development** プロファイルの EAS ビルドは **開発用**で、起動時に Mac 上の Metro（パッケージャ）へ接続します。**上記の Release / EAS `internal`・`production`** を使うと、iPad 単体で起動し、API はビルド時に埋め込んだ `EXPO_PUBLIC_*` から本番（Vercel 等）へ向きます。
 
 1. **EAS にログイン**（初回のみ）
 
