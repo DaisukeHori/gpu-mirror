@@ -45,6 +45,39 @@ Rules:
 - Preserve realistic lighting consistent with the angle.`;
 };
 
+export const buildConsistentAnglePrompt = (params: {
+  angle: string;
+  mode: SimulationMode;
+  colorName?: string;
+  colorHex?: string;
+  customInstruction?: string;
+}): string => {
+  const angleInst = ANGLE_INSTRUCTIONS[params.angle as keyof typeof ANGLE_INSTRUCTIONS] ?? '';
+
+  const colorPart = params.colorName
+    ? ` The hair color must be ${params.colorName}${params.colorHex ? ` (${params.colorHex})` : ''}.`
+    : '';
+
+  const customPart = params.customInstruction
+    ? `\nAdditional styling instruction: "${params.customInstruction}"`
+    : '';
+
+  return `You are generating a specific angle view that must be PERFECTLY consistent with an already-confirmed front view.
+
+Image 1 is the person's original photo.
+Image 2 is a reference hairstyle image.
+Image 3 is the CONFIRMED front-facing result — this is the definitive reference for the exact hairstyle: cut, length, volume, layers, bangs, parting, texture, and color.
+
+Generate a ${angleInst}${colorPart}
+${customPart}
+CRITICAL RULES:
+- The hairstyle MUST match Image 3 (the confirmed front view) EXACTLY — same cut, same length, same layers, same bangs, same parting, same volume, same texture, same color.
+- Hair flow and layering must be physically consistent with how the confirmed front view would look from this angle.
+- Keep the person's face, identity, skin tone, and facial expression EXACTLY the same as Image 1.
+- The result must look like a natural photograph taken in a beauty salon.
+- Preserve realistic lighting consistent with the angle.`;
+};
+
 export const COST_PER_IMAGE_USD = 0.039;
 
 export const buildRefineStep1Prompt = (params: {

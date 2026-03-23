@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '../../../lib/supabase-admin';
 import { authenticate } from '../../../lib/auth';
-import { getAIProvider } from '../../../lib/ai-gateway';
+import { getAIProvider, type GenerateSingleInput } from '../../../lib/ai-gateway';
 import { resizeImage } from '../../../lib/image-utils';
 import { createConcurrencyLimiter, withTimeout, GENERATION_TIMEOUT_MS } from '../../../lib/concurrency';
-import { ANGLES, ANGLE_LABELS, buildPrompt, buildRefineStep1Prompt, buildRefineStep2Prompt, generateRequestSchema } from '@revol-mirror/shared';
+import { ANGLES, ANGLE_LABELS, buildPrompt, buildConsistentAnglePrompt, buildRefineStep1Prompt, buildRefineStep2Prompt, generateRequestSchema } from '@revol-mirror/shared';
 import type { SimulationMode } from '@revol-mirror/shared';
 
 interface GenerationTask {
@@ -299,113 +299,167 @@ export async function POST(request: NextRequest) {
         ? tasks.filter((t) => t.angle !== 'front')
         : tasks;
 
-      const promises = remainingTasks.map((task) =>
-        runWithLimit(async () => {
+      // --- Normal flow: generate front first, then use it as reference for other angles ---
+      // Group tasks by styleIndex
+      const tasksByStyle = new Map<number, GenerationTask[]>();
+      for (const task of remainingTasks) {
+        const list = tasksByStyle.get(task.styleIndex) ?? [];
+        list.push(task);
+        tasksByStyle.set(task.styleIndex, list);
+      }
+
+      // Map from styleIndex to confirmed front image buffer
+      const confirmedFrontImages = new Map<number, Buffer>();
+      // If refine step1 already generated front, use it
+      if (step1FrontImage) {
+        for (const [styleIdx] of tasksByStyle) {
+          confirmedFrontImages.set(styleIdx, step1FrontImage);
+        }
+      }
+
+      async function generateTask(task: GenerationTask) {
+        try {
+          await supabaseAdmin
+            .from('session_generations')
+            .update({ status: 'generating' })
+            .eq('id', task.generationId);
+
+          let prompt: string;
+          const cached = styleDataCache.get(task.styleIndex)!;
+          const isRefineStep2 = !!(prevGenImages && step1FrontImage && custom_instruction);
+          const confirmedFront = confirmedFrontImages.get(task.styleIndex);
+
+          if (isRefineStep2) {
+            // Refine step 2: use confirmed front + user instruction
+            const angleInst = (() => {
+              switch (task.angle) {
+                case 'three_quarter': return 'photo from a three-quarter angle, face slightly turned to the side.';
+                case 'side': return 'side profile view.';
+                case 'back': return 'photo from behind, displaying the full back view of the hairstyle.';
+                case 'glamour': return 'professional beauty editorial portrait with soft bokeh background and magazine-quality aesthetic.';
+                default: return 'photo from the front.';
+              }
+            })();
+            prompt = buildRefineStep2Prompt({
+              customInstruction: custom_instruction!,
+              angle: task.angle,
+              angleInstruction: angleInst,
+            });
+          } else if (task.angle !== 'front' && confirmedFront) {
+            // Non-front angle with confirmed front: use consistency prompt
+            prompt = buildConsistentAnglePrompt({
+              angle: task.angle,
+              mode: ((task.style.simulation_mode as string) ?? 'style') as SimulationMode,
+              colorName: cached.colorName,
+              colorHex: cached.colorHex,
+              customInstruction: custom_instruction,
+            });
+          } else {
+            // Front angle or no confirmed front yet
+            prompt = buildPrompt({
+              mode: ((task.style.simulation_mode as string) ?? 'style') as SimulationMode,
+              angle: task.angle,
+              colorName: cached.colorName,
+              colorHex: cached.colorHex,
+              customInstruction: custom_instruction,
+            });
+          }
+
+          // Build image inputs
+          const useRefineCustomer = isRefineStep2 && step1FrontImage;
+          const inputImages: GenerateSingleInput = {
+            customerPhoto: useRefineCustomer ? step1FrontImage! : customerPhotoBuffer,
+            referencePhoto: isRefineStep2 ? undefined : cached.referencePhotoBuffer,
+            // For non-front angles, also pass the confirmed front as an additional image
+            additionalImages: (!isRefineStep2 && task.angle !== 'front' && confirmedFront)
+              ? [confirmedFront]
+              : undefined,
+            prompt,
+          };
+
+          const result = await withTimeout(
+            provider.generateSingle(inputImages),
+            GENERATION_TIMEOUT_MS,
+            `AI generation (${task.angle})`,
+          );
+
+          const storagePath = `${session_id}/${task.generationId}.jpg`;
+          await supabaseAdmin.storage
+            .from('generated-photos')
+            .upload(storagePath, result.image, { contentType: 'image/jpeg' });
+
+          await supabaseAdmin
+            .from('session_generations')
+            .update({
+              status: 'completed',
+              generated_photo_path: storagePath,
+              ai_prompt: prompt,
+              ai_latency_ms: result.latencyMs,
+              style_label: task.style.style_label,
+              ai_cost_usd: result.estimatedCostUsd,
+            })
+            .eq('id', task.generationId);
+
+          const { data: urlData } = await supabaseAdmin.storage
+            .from('generated-photos')
+            .createSignedUrl(storagePath, 3600);
+
+          sendEvent({
+            type: 'generation_completed',
+            generation_id: task.generationId,
+            style_group: task.styleGroup,
+            angle: task.angle,
+            photo_url: urlData?.signedUrl,
+            storage_path: storagePath,
+            ai_latency_ms: result.latencyMs,
+            style_label: task.style.style_label,
+          });
+
+          return result.image;
+        } catch (err) {
+          console.error('[Generation FAILED]', task.angle, err instanceof Error ? err.message : err);
           try {
             await supabaseAdmin
               .from('session_generations')
-              .update({ status: 'generating' })
+              .update({ status: 'failed' })
               .eq('id', task.generationId);
+          } catch {
+            // best-effort status update
+          }
 
-            let prompt: string;
-            let additionalImages: Buffer[] | undefined;
+          sendEvent({
+            type: 'generation_failed',
+            generation_id: task.generationId,
+            style_group: task.styleGroup,
+            angle: task.angle,
+            error: err instanceof Error ? err.message : 'Unknown error',
+          });
+          return null;
+        }
+      }
 
-            if (prevGenImages && step1FrontImage && custom_instruction) {
-              // Step 2: Only confirmed front image + user instruction
-              const angleInst = (() => {
-                switch (task.angle) {
-                  case 'three_quarter': return 'photo from a three-quarter angle, face slightly turned to the side.';
-                  case 'side': return 'side profile view.';
-                  case 'back': return 'photo from behind, displaying the full back view of the hairstyle.';
-                  case 'glamour': return 'professional beauty editorial portrait with soft bokeh background and magazine-quality aesthetic.';
-                  default: return 'photo from the front.';
-                }
-              })();
+      // Process each style group: front first, then other angles in parallel
+      const styleGroupPromises = Array.from(tasksByStyle.entries()).map(([styleIdx, styleTasks]) =>
+        runWithLimit(async () => {
+          const frontTask = styleTasks.find((t) => t.angle === 'front');
+          const otherTasks = styleTasks.filter((t) => t.angle !== 'front');
 
-              prompt = buildRefineStep2Prompt({
-                customInstruction: custom_instruction,
-                angle: task.angle,
-                angleInstruction: angleInst,
-              });
-
-              additionalImages = undefined;
-            } else {
-              const cached = styleDataCache.get(task.styleIndex)!;
-              prompt = buildPrompt({
-                mode: ((task.style.simulation_mode as string) ?? 'style') as SimulationMode,
-                angle: task.angle,
-                colorName: cached.colorName,
-                colorHex: cached.colorHex,
-                customInstruction: custom_instruction,
-              });
+          // Step 1: Generate front first (if not already done)
+          if (frontTask && !confirmedFrontImages.has(styleIdx)) {
+            const frontImage = await generateTask(frontTask);
+            if (frontImage) {
+              confirmedFrontImages.set(styleIdx, frontImage);
             }
+          }
 
-            const cached = styleDataCache.get(task.styleIndex)!;
-            const isRefineStep2 = !!(prevGenImages && step1FrontImage && custom_instruction);
-            const result = await withTimeout(
-              provider.generateSingle({
-                customerPhoto: isRefineStep2 ? step1FrontImage! : customerPhotoBuffer,
-                referencePhoto: isRefineStep2 ? undefined : cached.referencePhotoBuffer,
-                prompt,
-              }),
-              GENERATION_TIMEOUT_MS,
-              `AI generation (${task.angle})`,
-            );
-
-            const storagePath = `${session_id}/${task.generationId}.jpg`;
-            await supabaseAdmin.storage
-              .from('generated-photos')
-              .upload(storagePath, result.image, { contentType: 'image/jpeg' });
-
-            await supabaseAdmin
-              .from('session_generations')
-              .update({
-                status: 'completed',
-                generated_photo_path: storagePath,
-                ai_prompt: prompt,
-                ai_latency_ms: result.latencyMs,
-              style_label: task.style.style_label,
-                ai_cost_usd: result.estimatedCostUsd,
-              })
-              .eq('id', task.generationId);
-
-            const { data: urlData } = await supabaseAdmin.storage
-              .from('generated-photos')
-              .createSignedUrl(storagePath, 3600);
-
-            sendEvent({
-              type: 'generation_completed',
-              generation_id: task.generationId,
-              style_group: task.styleGroup,
-              angle: task.angle,
-              photo_url: urlData?.signedUrl,
-              storage_path: storagePath,
-              ai_latency_ms: result.latencyMs,
-              style_label: task.style.style_label,
-            });
-          } catch (err) {
-            console.error('[Generation FAILED]', task.angle, err instanceof Error ? err.message : err);
-            try {
-              await supabaseAdmin
-                .from('session_generations')
-                .update({ status: 'failed' })
-                .eq('id', task.generationId);
-            } catch {
-              // best-effort status update
-            }
-
-            sendEvent({
-              type: 'generation_failed',
-              generation_id: task.generationId,
-              style_group: task.styleGroup,
-              angle: task.angle,
-              error: err instanceof Error ? err.message : 'Unknown error',
-            });
+          // Step 2: Generate other angles in parallel, using confirmed front as reference
+          if (otherTasks.length > 0) {
+            await Promise.allSettled(otherTasks.map((task) => generateTask(task)));
           }
         }),
       );
 
-      await Promise.allSettled(promises);
+      await Promise.allSettled(styleGroupPromises);
       clearInterval(heartbeat);
       sendEvent({ type: 'all_completed' });
       try { controller.close(); } catch { /* already closed */ }

@@ -7,20 +7,6 @@ export const PINTEREST_INJECT_SCRIPT = `
     window.__revolInjectedInitialized = true;
 
     let longPressTimer = null;
-    var AUTH_HINTS = [
-      'pinterest へようこそ',
-      'welcome to pinterest',
-      'ログインしてもっと見る',
-      'log in to see more',
-      'メールアドレスで続行',
-      'continue with email',
-      'google で続ける',
-      'continue with google',
-      'ログイン',
-      'log in',
-      'download the pinterest app',
-      'pinterest アプリをダウンロードする'
-    ];
 
     var style = document.createElement('style');
     style.innerHTML = [
@@ -36,6 +22,10 @@ export const PINTEREST_INJECT_SCRIPT = `
 
     function normalizeText(value) {
       return String(value || '').toLowerCase().replace(/\\s+/g, ' ').trim();
+    }
+
+    function isOnPinDetail() {
+      return window.location.href.indexOf('/pin/') >= 0;
     }
 
     function hideElement(el) {
@@ -56,24 +46,23 @@ export const PINTEREST_INJECT_SCRIPT = `
       hideElement(el);
     }
 
+    function removeBySelector(selector) {
+      document.querySelectorAll(selector).forEach(function(node) {
+        removeElement(node);
+      });
+    }
+
     function removeFixedAncestor(el, maxSteps) {
       var current = el;
       for (var i = 0; i < (maxSteps || 6) && current; i += 1) {
         var parent = current.parentElement;
-        if (!parent) break;
-        var style = window.getComputedStyle(parent);
-        if (style.position === 'fixed' || style.position === 'sticky' || parseInt(style.zIndex || '0', 10) > 600) {
+        if (!parent || parent === document.body || parent === document.documentElement) break;
+        var pStyle = window.getComputedStyle(parent);
+        if (pStyle.position === 'fixed' || pStyle.position === 'sticky' || parseInt(pStyle.zIndex || '0', 10) > 600) {
           removeElement(parent);
         }
         current = parent;
       }
-    }
-
-    function removeBySelector(selector) {
-      document.querySelectorAll(selector).forEach(function(node) {
-        removeElement(node);
-        removeFixedAncestor(node, 8);
-      });
     }
 
     function findElementByText(texts) {
@@ -90,36 +79,90 @@ export const PINTEREST_INJECT_SCRIPT = `
       return null;
     }
 
-    function looksLikeAuthPrompt(el) {
-      if (!el) return false;
-      var text = normalizeText(el.innerText || el.textContent);
-      if (!text) return false;
-      var hits = 0;
-      AUTH_HINTS.forEach(function(keyword) {
-        if (text.indexOf(keyword) >= 0) hits += 1;
-      });
-      return hits >= 1;
-    }
-
-    function containsAuthControls(el) {
-      if (!el || typeof el.querySelector !== 'function') return false;
-      return Boolean(
-        el.querySelector('[data-test-id="passwordInputField"]') ||
-        el.querySelector('input[type="password"]') ||
-        el.querySelector('#credential_picker_container') ||
-        el.querySelector('iframe[title*="Google"]') ||
-        el.querySelector('button[aria-label*="ログイン"]') ||
-        el.querySelector('button[aria-label*="Log in"]')
-      );
-    }
-
     function dismissAuthPrompt() {
+      // Always safe to remove these specific widgets
       removeBySelector('#credential_picker_container');
-      removeBySelector('[data-test-id="unauth-header"]');
-      removeBySelector('[data-test-id="unauth-header-logo"]');
       removeBySelector('.grecaptcha-badge');
       removeBySelector('.fb_dialog');
       removeBySelector('.fb_dialog_mobile');
+
+      // On pin detail pages, only remove auth popups — never the pin content itself.
+      if (isOnPinDetail()) {
+        var AUTH_MODAL_TEXTS = [
+          'メールアドレスで続行', 'continue with email',
+          'google で続ける', 'continue with google',
+          'line で続行', 'continue with line',
+          'ログアウトしています', 'ログインしてより',
+          'pinterest へようこそ', 'welcome to pinterest',
+          'pinterest アプリをダウンロード', 'download the pinterest app',
+          'アカウントをお持ちの場合'
+        ];
+        // Scan all elements that could be auth overlays (dialogs, high-z, fixed)
+        var allOverlays = document.querySelectorAll(
+          'div[role="dialog"], div[role="presentation"], [data-test-id*="signup"], [data-test-id*="login"], [data-test-id*="auth"], [data-test-id*="unauth"], [id*="modal"], [class*="modal"], [class*="Modal"]'
+        );
+        // Also find any fixed/high-z elements that look like auth
+        document.querySelectorAll('div').forEach(function(el) {
+          var cs = window.getComputedStyle(el);
+          if ((cs.position === 'fixed' || parseInt(cs.zIndex || '0', 10) > 100) && el.offsetHeight > 200) {
+            allOverlays = Array.prototype.concat.call(Array.from(allOverlays), [el]);
+          }
+        });
+        var seen = new Set();
+        Array.from(allOverlays).forEach(function(node) {
+          if (!node || seen.has(node)) return;
+          seen.add(node);
+          // Keep elements that contain the actual large pin image (not small logos)
+          if (node.querySelector) {
+            var pinImgs = node.querySelectorAll('img[src*="pinimg.com"]');
+            var hasLargePinImg = false;
+            for (var pi = 0; pi < pinImgs.length; pi++) {
+              var rect = pinImgs[pi].getBoundingClientRect();
+              if (rect.width > 150 && rect.height > 150) { hasLargePinImg = true; break; }
+            }
+            if (hasLargePinImg) return;
+          }
+          var text = normalizeText(node.innerText || node.textContent);
+          var isAuth = false;
+          for (var i = 0; i < AUTH_MODAL_TEXTS.length; i++) {
+            if (text.indexOf(AUTH_MODAL_TEXTS[i]) >= 0) { isAuth = true; break; }
+          }
+          if (!isAuth && node.querySelector) {
+            isAuth = Boolean(node.querySelector('input[type="password"]'));
+          }
+          if (isAuth) {
+            removeElement(node);
+            // Also remove any backdrop/overlay parent
+            var parent = node.parentElement;
+            if (parent && parent !== document.body) {
+              var ps = window.getComputedStyle(parent);
+              if (ps.position === 'fixed' || parseInt(ps.zIndex || '0', 10) > 100) {
+                var parentHasLargePin = false;
+                if (parent.querySelector) {
+                  var pImgs = parent.querySelectorAll('img[src*="pinimg.com"]');
+                  for (var pj = 0; pj < pImgs.length; pj++) {
+                    var pr = pImgs[pj].getBoundingClientRect();
+                    if (pr.width > 150 && pr.height > 150) { parentHasLargePin = true; break; }
+                  }
+                }
+                if (!parentHasLargePin) {
+                  removeElement(parent);
+                }
+              }
+            }
+          }
+        });
+        document.documentElement.style.overflow = 'auto';
+        document.body.style.overflow = 'auto';
+        document.body.style.removeProperty('pointer-events');
+        document.documentElement.style.removeProperty('pointer-events');
+        return;
+      }
+
+      // --- Below only runs on search / non-pin-detail pages ---
+
+      removeBySelector('[data-test-id="unauth-header"]');
+      removeBySelector('[data-test-id="unauth-header-logo"]');
 
       var passwordField = document.querySelector('[data-test-id="passwordInputField"], input[type="password"]');
       if (passwordField) {
@@ -143,13 +186,21 @@ export const PINTEREST_INJECT_SCRIPT = `
 
       candidates.forEach(function(node) {
         if (!node) return;
-        var isAuthDialog =
-          looksLikeAuthPrompt(node) ||
-          containsAuthControls(node) ||
-          node.id === 'credential_picker_container' ||
-          normalizeText(node.getAttribute('aria-label')).indexOf('google') >= 0;
 
+        var text = normalizeText(node.innerText || node.textContent);
+        var hasPassword = node.querySelector && Boolean(
+          node.querySelector('[data-test-id="passwordInputField"]') ||
+          node.querySelector('input[type="password"]') ||
+          node.querySelector('iframe[title*="Google"]')
+        );
+        var authTextHits = 0;
+        ['pinterest へようこそ', 'welcome to pinterest', 'メールアドレスで続行', 'continue with email', 'google で続ける', 'continue with google'].forEach(function(kw) {
+          if (text.indexOf(kw) >= 0) authTextHits += 1;
+        });
+
+        var isAuthDialog = hasPassword || authTextHits >= 2 || node.id === 'credential_picker_container';
         if (!isAuthDialog) return;
+
         removeElement(node);
 
         var closeButton = node.querySelector('.euRXRl, button[aria-label*="閉じる"], button[aria-label*="close"], [data-test-id*="close"]');
@@ -259,6 +310,7 @@ export const PINTEREST_INJECT_SCRIPT = `
 
     // Detect blank/white page after auth prompt removal and notify RN
     setInterval(function() {
+      if (isOnPinDetail()) return; // Don't trigger on pin detail
       var images = document.querySelectorAll('img[src*="pinimg.com"]');
       var hasVisibleContent = images.length > 0 ||
         document.querySelector('[data-test-id="pin"]') ||

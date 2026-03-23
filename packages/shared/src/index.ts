@@ -38,7 +38,7 @@ export type {
 export type { HubSpotContactProperties, HubSpotTimelineEvent } from './types/hubspot';
 
 export { ANGLES, ANGLE_LABELS, ANGLE_INSTRUCTIONS } from './constants/angles';
-export { buildPrompt, buildRefineStep1Prompt, buildRefineStep2Prompt, COST_PER_IMAGE_USD } from './constants/prompts';
+export { buildPrompt, buildConsistentAnglePrompt, buildRefineStep1Prompt, buildRefineStep2Prompt, COST_PER_IMAGE_USD } from './constants/prompts';
 export type { PromptParams } from './constants/prompts';
 export { COLOR_FAMILIES, HAIR_COLOR_SEEDS } from './constants/hair-colors';
 export { DARK_THEME, LIGHT_THEME, RADIUS, ANIMATION, BORDER_WIDTH } from './constants/design-tokens';

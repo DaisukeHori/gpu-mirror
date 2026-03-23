@@ -47,8 +47,8 @@ export const PinterestBrowser = forwardRef<PinterestBrowserHandle, PinterestBrow
           // Avoid repeated reloads: only reload once per blank detection
           if (!blankDetectedRef.current) {
             blankDetectedRef.current = true;
-            setWebUrl(buildPinterestSearchUrl(searchQuery));
-            // Reset flag after a delay so future blanks can be detected
+            const url = buildPinterestSearchUrl(searchQuery);
+            webviewRef.current?.injectJavaScript(`window.location.href = ${JSON.stringify(url)}; true;`);
             setTimeout(() => { blankDetectedRef.current = false; }, 3000);
           }
           return;
@@ -126,9 +126,19 @@ export const PinterestBrowser = forwardRef<PinterestBrowserHandle, PinterestBrow
   }, []);
 
   const handleContentProcessDidTerminate = useCallback(() => {
-    // WebView process crashed — reload current search URL
     setWebUrl(buildPinterestSearchUrl(searchQuery));
   }, [searchQuery]);
+
+  const handleGoBack = useCallback(() => {
+    if (isPinDetail) {
+      // Pin detail → search results: navigate WebView directly
+      // (Pinterest SPA breaks on goBack, leaving a white screen)
+      const url = buildPinterestSearchUrl(searchQuery);
+      webviewRef.current?.injectJavaScript(`window.location.href = ${JSON.stringify(url)}; true;`);
+    } else {
+      webviewRef.current?.goBack();
+    }
+  }, [isPinDetail, searchQuery]);
 
   const handleSelectFromDetail = useCallback(() => {
     webviewRef.current?.injectJavaScript(
@@ -144,15 +154,15 @@ export const PinterestBrowser = forwardRef<PinterestBrowserHandle, PinterestBrow
   useEffect(() => {
     if (Platform.OS !== 'android') return;
     const handler = () => {
-      if (canGoBack && webviewRef.current) {
-        webviewRef.current.goBack();
+      if (canGoBack) {
+        handleGoBack();
         return true;
       }
       return false;
     };
     const sub = BackHandler.addEventListener('hardwareBackPress', handler);
     return () => sub.remove();
-  }, [canGoBack]);
+  }, [canGoBack, handleGoBack]);
 
   useImperativeHandle(ref, () => ({
     selectCurrentPin: handleSelectFromDetail,
@@ -164,7 +174,7 @@ export const PinterestBrowser = forwardRef<PinterestBrowserHandle, PinterestBrow
         <View className="flex-row items-center gap-2">
           <Pressable
             className={`px-4 py-2 rounded-pill border ${canGoBack ? 'bg-bg-surface border-border' : 'bg-bg-elevated/50 border-border/50'}`}
-            onPress={() => webviewRef.current?.goBack()}
+            onPress={handleGoBack}
             disabled={!canGoBack}
           >
             <Text className={`text-xs tracking-wide ${canGoBack ? 'text-text-primary' : 'text-text-muted opacity-50'}`}>
@@ -231,6 +241,7 @@ export const PinterestBrowser = forwardRef<PinterestBrowserHandle, PinterestBrow
       <WebView
         ref={webviewRef}
         source={{ uri: webUrl }}
+        userAgent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36"
         injectedJavaScriptBeforeContentLoaded={PINTEREST_INJECT_SCRIPT}
         injectedJavaScript={PINTEREST_INJECT_SCRIPT}
         onMessage={handleMessage}

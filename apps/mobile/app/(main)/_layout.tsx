@@ -16,7 +16,7 @@ export default function MainLayout() {
       <Stack.Screen name="index" options={{ animation: 'fade' }} />
       <Stack.Screen name="photo-prep" options={{ animation: 'slide_from_right' }} />
       <Stack.Screen name="camera" options={{ animation: 'fade' }} />
-      <Stack.Screen name="explore" options={{ animation: 'slide_from_right' }} />
+      <Stack.Screen name="explore" options={{ animation: 'slide_from_right', gestureEnabled: false }} />
       <Stack.Screen name="confirm" options={{ animation: 'slide_from_right' }} />
       <Stack.Screen name="generating" options={{ animation: 'fade' }} />
       <Stack.Screen name="result" options={{ animation: 'fade' }} />

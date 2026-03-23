@@ -11,7 +11,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useGenerate } from '../../hooks/useGenerate';
+import { useGenerate, type StyleGroupProgress } from '../../hooks/useGenerate';
 import { ExitButton } from '../../components/common/ExitButton';
 import { useCloseSession } from '../../hooks/useCloseSession';
 import { ProgressBoard } from '../../components/generating/ProgressBoard';
@@ -108,13 +108,40 @@ export default function GeneratingScreen() {
     }
   }, [params.styleLabels]);
 
-  const styleThumbnails = useMemo(() => {
-    const stored = getStoredSelectedStyles(sessionIdNorm);
-    return stored.map((s) => s.thumbnailUrl || s.localThumbnailUri || s.sourceUrl || '');
-  }, [sessionIdNorm]);
   const closeSession = useCloseSession(sessionIdNorm || undefined);
   const insets = useSafeAreaInsets();
   const { results, progress, isGenerating, isComplete, startGeneration, reset } = useGenerate();
+
+  const styleThumbnails = useMemo(() => {
+    const stored = getStoredSelectedStyles(sessionIdNorm);
+    const relevant = stored.slice(0, styleLabels.length);
+    return relevant.map((s) => s.thumbnailUrl || s.localThumbnailUri || s.sourceUrl || '');
+  }, [sessionIdNorm, styleLabels.length]);
+
+  // Build a direct map from style_group number → label + thumbnail
+  const labelMap = useMemo(() => {
+    const map = new Map<number, { label: string; thumbnail: string }>();
+    const groups = Array.from(progress.keys()).sort((a, b) => a - b);
+    const currentGroups = groups.slice(-styleLabels.length);
+    currentGroups.forEach((g, i) => {
+      map.set(g, {
+        label: styleLabels[i] ?? `Style ${g}`,
+        thumbnail: styleThumbnails[i] ?? '',
+      });
+    });
+    return map;
+  }, [progress, styleLabels, styleThumbnails]);
+
+  // Filter progress to only show current batch
+  const filteredProgress = useMemo(() => {
+    const groups = Array.from(progress.keys()).sort((a, b) => a - b);
+    const currentGroups = new Set(groups.slice(-styleLabels.length));
+    const filtered = new Map<number, StyleGroupProgress>();
+    for (const [k, v] of progress) {
+      if (currentGroups.has(k)) filtered.set(k, v);
+    }
+    return filtered;
+  }, [progress, styleLabels.length]);
 
 
   const contentOpacity = useSharedValue(0);
@@ -204,9 +231,10 @@ export default function GeneratingScreen() {
         </View>
 
         <ProgressBoard
-          progress={progress}
+          progress={filteredProgress}
           styleLabels={styleLabels}
-            styleThumbnails={styleThumbnails}
+          styleThumbnails={styleThumbnails}
+          labelMap={labelMap}
           onViewCompleted={handleViewCompleted}
         />
 

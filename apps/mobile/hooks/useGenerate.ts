@@ -376,6 +376,7 @@ export function useGenerate() {
     retryGeneration,
     syncFromDB,
     reset,
+    prevMaxStyleGroup: prevMaxStyleGroupRef.current,
   };
 }
 

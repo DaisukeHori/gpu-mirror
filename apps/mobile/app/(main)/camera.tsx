@@ -238,13 +238,15 @@ export default function CameraScreen() {
             backgroundColor: 'rgba(5, 4, 3, 0.28)',
           }}
         >
-          <View className="flex-row items-end justify-between">
-            <Pressable className="w-24 items-center py-3" onPress={handlePickFromLibrary}>
+          <View className="flex-row items-center gap-3">
+            <ShutterButton onPress={takePhoto} />
+          </View>
+          <View className="flex-row items-center justify-center gap-6 mt-3">
+            <Pressable className="py-2 px-4" onPress={handlePickFromLibrary}>
               <Text className="text-white/88 text-xs tracking-wide">ライブラリ</Text>
             </Pressable>
-            <ShutterButton onPress={takePhoto} />
-            <Pressable className="w-24 items-center py-3" onPress={toggleFacing}>
-              <Text className="text-white/88 text-xs tracking-wide">切替</Text>
+            <Pressable className="py-2 px-4" onPress={toggleFacing}>
+              <Text className="text-white/88 text-xs tracking-wide">カメラ切替</Text>
             </Pressable>
           </View>
         </View>

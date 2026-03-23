@@ -13,6 +13,7 @@ interface ProgressBoardProps {
   progress: Map<number, StyleGroupProgress>;
   styleLabels: string[];
   styleThumbnails?: string[];
+  labelMap?: Map<number, { label: string; thumbnail: string }>;
   onViewCompleted: (styleGroup: number) => void;
 }
 
@@ -37,7 +38,7 @@ function AnimatedBar({ percent }: { percent: number }) {
   );
 }
 
-export function ProgressBoard({ progress, styleLabels, styleThumbnails, onViewCompleted }: ProgressBoardProps) {
+export function ProgressBoard({ progress, styleLabels, styleThumbnails, labelMap, onViewCompleted }: ProgressBoardProps) {
   return (
     <View style={{ width: '100%', maxWidth: 520, gap: 12 }}>
       {Array.from(progress.entries()).map(([groupNum, group]) => {
@@ -45,8 +46,9 @@ export function ProgressBoard({ progress, styleLabels, styleThumbnails, onViewCo
         const failed = group.failed.length;
         const pct = Math.round(((completed + failed) / group.total) * 100);
         const allDone = completed + failed >= group.total;
-        const label = styleLabels[groupNum - 1] ?? `Style ${groupNum}`;
-        const thumbUrl = styleThumbnails?.[groupNum - 1];
+        const mapped = labelMap?.get(groupNum);
+        const label = mapped?.label ?? `Style ${groupNum}`;
+        const thumbUrl = mapped?.thumbnail ?? undefined;
 
         return (
           <Pressable
