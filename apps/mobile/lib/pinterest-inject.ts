@@ -256,6 +256,21 @@ export const PINTEREST_INJECT_SCRIPT = `
     observer.observe(document.body, { childList: true, subtree: true });
     dismissAuthPrompt();
     setInterval(dismissAuthPrompt, 500);
+
+    // Detect blank/white page after auth prompt removal and notify RN
+    setInterval(function() {
+      var images = document.querySelectorAll('img[src*="pinimg.com"]');
+      var hasVisibleContent = images.length > 0 ||
+        document.querySelector('[data-test-id="pin"]') ||
+        document.querySelector('[data-test-id="pinGrid"]') ||
+        document.querySelector('[data-test-id="search-guide"]');
+      var bodyText = (document.body.innerText || '').trim();
+      if (!hasVisibleContent && bodyText.length < 20 && document.readyState === 'complete') {
+        window.ReactNativeWebView.postMessage(JSON.stringify({
+          type: 'blank_page_detected'
+        }));
+      }
+    }, 2000);
   }
 
   if (document.body) {

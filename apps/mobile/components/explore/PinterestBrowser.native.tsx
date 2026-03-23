@@ -37,10 +37,22 @@ export const PinterestBrowser = forwardRef<PinterestBrowserHandle, PinterestBrow
   const [webUrl, setWebUrl] = useState(buildPinterestSearchUrl(DEFAULT_PINTEREST_QUERY));
   const [isPinDetail, setIsPinDetail] = useState(false);
 
+  const blankDetectedRef = useRef(false);
+
   const handleMessage = useCallback(
     async (event: { nativeEvent: { data: string } }) => {
       try {
         const data = JSON.parse(event.nativeEvent.data);
+        if (data.type === 'blank_page_detected') {
+          // Avoid repeated reloads: only reload once per blank detection
+          if (!blankDetectedRef.current) {
+            blankDetectedRef.current = true;
+            setWebUrl(buildPinterestSearchUrl(searchQuery));
+            // Reset flag after a delay so future blanks can be detected
+            setTimeout(() => { blankDetectedRef.current = false; }, 3000);
+          }
+          return;
+        }
         if (data.type === 'unsupported_video') {
           Alert.alert('動画は選択できません', '別のヘアスタイル画像をお試しください。');
           return;
@@ -110,7 +122,13 @@ export const PinterestBrowser = forwardRef<PinterestBrowserHandle, PinterestBrow
 
   const handleLoadEnd = useCallback(() => {
     webviewRef.current?.injectJavaScript(PINTEREST_INJECT_SCRIPT);
+    blankDetectedRef.current = false;
   }, []);
+
+  const handleContentProcessDidTerminate = useCallback(() => {
+    // WebView process crashed — reload current search URL
+    setWebUrl(buildPinterestSearchUrl(searchQuery));
+  }, [searchQuery]);
 
   const handleSelectFromDetail = useCallback(() => {
     webviewRef.current?.injectJavaScript(
@@ -219,6 +237,7 @@ export const PinterestBrowser = forwardRef<PinterestBrowserHandle, PinterestBrow
         onNavigationStateChange={handleNavStateChange}
         onShouldStartLoadWithRequest={handleShouldStartLoad}
         onLoadEnd={handleLoadEnd}
+        onContentProcessDidTerminate={handleContentProcessDidTerminate}
         javaScriptEnabled
         domStorageEnabled
         sharedCookiesEnabled

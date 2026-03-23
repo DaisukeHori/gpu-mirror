@@ -82,11 +82,18 @@ export default function SettingsScreen() {
             <Text className="text-text-muted text-xs mb-4 leading-5">
               施術ログの閲覧、詳細確認、CSVエクスポートを開きます。
             </Text>
-            <HapticButton
-              title="施術ログを開く"
-              variant="secondary"
-              onPress={() => router.push('/(main)/(admin)/sessions')}
-            />
+            <View className="gap-3">
+              <HapticButton
+                title="施術ログを開く"
+                variant="secondary"
+                onPress={() => router.push('/(main)/(admin)/sessions')}
+              />
+              <HapticButton
+                title="AI 使用量を確認"
+                variant="secondary"
+                onPress={() => router.push('/(main)/(admin)/usage')}
+              />
+            </View>
           </View>
         )}
 
