@@ -249,6 +249,7 @@ export const PinterestBrowser = forwardRef<PinterestBrowserHandle, PinterestBrow
         onShouldStartLoadWithRequest={handleShouldStartLoad}
         onLoadEnd={handleLoadEnd}
         onContentProcessDidTerminate={handleContentProcessDidTerminate}
+        onRenderProcessGone={handleContentProcessDidTerminate}
         javaScriptEnabled
         domStorageEnabled
         sharedCookiesEnabled
