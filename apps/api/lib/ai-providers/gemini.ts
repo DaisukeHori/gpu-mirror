@@ -11,7 +11,22 @@ export class GeminiProvider implements AIProvider {
     if (!apiKey) {
       throw new Error('GEMINI_API_KEY environment variable is not set');
     }
-    this.client = new GoogleGenAI({ apiKey });
+
+    // GEMINI_BASE_URL が設定されていれば、カスタムバックエンド（Stable-Hair等）に接続
+    const baseUrl = process.env.GEMINI_BASE_URL;
+    const bypassSecret = process.env.VERCEL_PROTECTION_BYPASS;
+
+    this.client = new GoogleGenAI({
+      apiKey,
+      ...(baseUrl && {
+        httpOptions: {
+          baseUrl,
+          ...(bypassSecret && {
+            headers: { 'x-vercel-protection-bypass': bypassSecret },
+          }),
+        },
+      }),
+    });
     this.model = process.env.GEMINI_MODEL ?? 'gemini-3.1-flash-image-preview';
   }
 
